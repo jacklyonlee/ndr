@@ -4,6 +4,7 @@ channels:
   - pytorch
 dependencies:
   - python=3.8
+  - pre_commit
   - tqdm
   - cudatoolkit=11.3
   - pytorch::pytorch=1.11.0
