@@ -1,9 +1,10 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
 import tqdm
+
+import model.criterion
+import model.ndr
 
 BSIZE = 64
 NEPOCH = 2
@@ -28,26 +29,22 @@ testset = torchvision.datasets.CIFAR10(
 
 testloader = torch.utils.data.DataLoader(testset, batch_size=BSIZE, shuffle=False)
 
-model = nn.Linear(32 * 32 * 3, 10).cuda()
-opt = optim.Adam(model.parameters())
 
-for _ in range(NEPOCH):
-    for x, y in tqdm.tqdm(trainloader):
-        x, y = x.cuda(), y.cuda()
-        x = torch.flatten(x, start_dim=1)
-        o = model(x)
-        loss = F.cross_entropy(o, y)
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
+def train(net, opt, criterion):
+    for _ in range(NEPOCH):
+        with tqdm.tqdm(trainloader) as t:
+            for x, y in t:
+                x, y = x.cuda(), y.cuda()
+                o = net(x)
+                loss = criterion(o, x)
+                opt.zero_grad()
+                loss.backward()
+                opt.step()
+                t.set_description(f"Epoch:{_}/{NEPOCH}|Loss:{loss.item():.2f}")
 
-acc = []
-for x, y in testloader:
-    x, y = x.cuda(), y.cuda()
-    x = torch.flatten(x, start_dim=1)
-    o = model(x)
-    p = o.argmax(axis=1)
-    acc.append((p == y).cpu())
 
-acc = torch.cat(acc, axis=0).float().mean()
-print("ACC:", acc.item())
+net = model.ndr.AE(128).cuda()
+opt = optim.Adam(net.parameters())
+criterion = model.criterion.AELoss()
+
+train(net, opt, criterion)
