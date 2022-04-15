@@ -3,7 +3,7 @@ import torch.optim as optim
 import torchvision
 import tqdm
 
-import model.criterion
+import model.metric
 import model.ndr
 
 BSIZE = 64
@@ -30,13 +30,12 @@ testset = torchvision.datasets.CIFAR10(
 testloader = torch.utils.data.DataLoader(testset, batch_size=BSIZE, shuffle=False)
 
 
-def train(net, opt, criterion):
+def train(net, opt):
     for _ in range(NEPOCH):
         with tqdm.tqdm(trainloader) as t:
             for x, y in t:
                 x, y = x.cuda(), y.cuda()
-                o = net(x)
-                loss = criterion(o, x)
+                loss = net.criterion(x)
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
@@ -45,6 +44,6 @@ def train(net, opt, criterion):
 
 net = model.ndr.AE(128).cuda()
 opt = optim.Adam(net.parameters())
-criterion = model.criterion.AELoss()
 
-train(net, opt, criterion)
+train(net, opt)
+model.metric.compute_lp(trainloader, testloader, net)
