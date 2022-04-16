@@ -8,5 +8,5 @@ dependencies:
   - tqdm
   - cudatoolkit=11.3
   - pytorch::pytorch=1.11.0
-  - umap-learn
-  - scikit-learn
+  - torchvision
+  - scikit-learn-intelex
