@@ -1,79 +1,98 @@
+import argparse
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.utils.data as data
-import torchvision
 import tqdm
 
 import model.metric as metric
-import model.ndr as ndr
-
-# from sklearn.decomposition import IncrementalPCA
-# from sklearn.random_projection import GaussianRandomProjection
+import util
 
 
-BSIZE = 128
-NEPOCH = 1
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=True,
+        help=(
+            "Dimensionality reduction model "
+            "(supported models: RP, PCA, AE, VAE, SimCLR)."
+        ),
+    )
+    parser.add_argument(
+        "--z_dim", type=int, required=True, help="Dimension after reduction."
+    )
+    parser.add_argument(
+        "--hidden_dim", type=int, default=64, help="Model hidden dimension."
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=512, help="Training batch size."
+    )
+    parser.add_argument(
+        "--n_epochs", type=int, default=1, help="Number of epochs to train."
+    )
+    return parser.parse_args()
 
 
-transform = torchvision.transforms.Compose(
-    [
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ]
-)
+def main(model_name, z_dim, hidden_dim, batch_size, n_epochs):
+    # prepare training data
+    trainloader = util.get_dataloader(
+        root="./data", model_name=model_name, batch_size=batch_size, train=True
+    )
 
-trainset = torchvision.datasets.CIFAR10(
-    root="./data", train=True, download=True, transform=transform
-)
+    # select model
+    model = util.get_model(model_name, z_dim, hidden_dim)
 
-trainloader = data.DataLoader(trainset, batch_size=BSIZE, shuffle=True)
+    def train(model, loader):
+        model.train()
+        opt = optim.Adam(model.parameters())
+        for _ in range(n_epochs):
+            with tqdm.tqdm(loader) as t:
+                for x in t:
+                    loss = model.criterion(x.cuda())
+                    opt.zero_grad()
+                    loss.backward()
+                    opt.step()
+                    t.set_description(f"Epoch:{_}/{n_epochs}|Loss:{loss.item():.2f}")
+        model.eval()
 
-testset = torchvision.datasets.CIFAR10(
-    root="./data", train=False, download=True, transform=transform
-)
+    # train model
+    if isinstance(model, nn.Module):
+        train(model, trainloader)
+    else:
+        model.fit(trainloader)
 
-testloader = data.DataLoader(testset, batch_size=BSIZE, shuffle=False)
+    # prepare test data
+    del trainloader
+    trainloader = util.get_dataloader(root="./data", batch_size=batch_size, train=True)
+    testloader = util.get_dataloader(root="./data", batch_size=batch_size, train=False)
 
+    def test(model, trainloader, testloader):
+        # encode dataset with ndr model
+        @torch.no_grad()
+        def get_features(loader):
+            Z, Y = [], []
+            for x, y in tqdm.tqdm(loader):
+                if isinstance(model, nn.Module):
+                    z = model(x.cuda()).cpu().numpy()
+                else:  # baseline
+                    x = torch.flatten(x, start_dim=1).numpy()
+                    z = model.transform(x)
+                Z.append(z)
+                Y.append(y)
+            return np.concatenate(Z), np.concatenate(Y)
 
-def train(net, opt):
-    for _ in range(NEPOCH):
-        with tqdm.tqdm(trainloader) as t:
-            for x, y in t:
-                x, y = x.cuda(), y.cuda()
-                loss = net.criterion(x)
-                opt.zero_grad()
-                loss.backward()
-                opt.step()
-                t.set_description(f"Epoch:{_}/{NEPOCH}|Loss:{loss.item():.2f}")
+        Z_tr, Y_tr = get_features(trainloader)
+        Z_te, Y_te = get_features(testloader)
+        metric.compute_lp(Z_tr, Y_tr, Z_te, Y_te)
+        metric.compute_knn(Z_tr, Y_tr, Z_te, Y_te)
 
-
-net = ndr.VAE(128, beta=1e-3).cuda()
-opt = optim.Adam(net.parameters())
-
-train(net, opt)
-
-
-def test(net, trainloader, testloader, batch_size):
-    # encode dataset with ndr model
-    @torch.no_grad()
-    def get_features(loader, shuffle=False):
-        Z, Y = [], []
-        for x, y in tqdm.tqdm(loader):
-            if isinstance(net, nn.Module):
-                z = net(x.cuda()).cpu().numpy()
-            else:  # baseline
-                x = torch.flatten(x, start_dim=1).numpy()
-                z = net.transform(x)
-            Z.append(z)
-            Y.append(y)
-        return np.concatenate(Z), np.concatenate(Y)
-
-    Z_tr, Y_tr = get_features(trainloader)
-    Z_te, Y_te = get_features(testloader)
-    metric.compute_lp(Z_tr, Y_tr, Z_te, Y_te)
-    metric.compute_knn(Z_tr, Y_tr, Z_te, Y_te)
+    # test model
+    test(model, trainloader, testloader)
 
 
-test(net, trainloader, testloader, 128)
+if __name__ == "__main__":
+    args = parse_args()
+    main(args.model, args.z_dim, args.hidden_dim, args.batch_size, args.n_epochs)

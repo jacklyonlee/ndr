@@ -6,10 +6,10 @@ from .module import Decoder, Encoder
 
 
 class AE(nn.Module):
-    def __init__(self, z_dim: int):
+    def __init__(self, z_dim: int, hidden_dim: int):
         super().__init__()
-        self.enc = Encoder(z_dim)
-        self.dec = Decoder(z_dim)
+        self.enc = Encoder(z_dim, hidden_dim)
+        self.dec = Decoder(z_dim, hidden_dim)
 
     def forward(self, x):
         return self.enc(x)
@@ -20,10 +20,10 @@ class AE(nn.Module):
 
 
 class VAE(nn.Module):
-    def __init__(self, z_dim: int, beta: float):
+    def __init__(self, z_dim: int, hidden_dim: int, beta: float = 1e-3):
         super().__init__()
-        self.enc = Encoder(z_dim * 2)
-        self.dec = Decoder(z_dim)
+        self.enc = Encoder(z_dim * 2, hidden_dim)
+        self.dec = Decoder(z_dim, hidden_dim)
         self.beta = beta
 
     def _reparameterize(self, z):

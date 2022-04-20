@@ -25,7 +25,7 @@ class ResBlock(nn.Module):
 
 
 class Encoder(nn.Sequential):
-    def __init__(self, z_dim: int, hidden_dim: int = 128):
+    def __init__(self, z_dim: int, hidden_dim: int):
         assert z_dim % 64 == 0
         super().__init__(
             # downsample
@@ -66,7 +66,7 @@ class Encoder(nn.Sequential):
 
 
 class Decoder(nn.Sequential):
-    def __init__(self, z_dim: int, hidden_dim: int = 128):
+    def __init__(self, z_dim: int, hidden_dim: int):
         assert z_dim % 64 == 0
         super().__init__(
             # [B, z_dim] -> [B, hidden_dim, 8, 8]
