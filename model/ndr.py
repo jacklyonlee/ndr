@@ -19,6 +19,21 @@ class AE(nn.Module):
         return F.mse_loss(recon_x, x)
 
 
+class DAE(AE):
+    def __init__(self, z_dim: int, hidden_dim: int, noise_std: float = 0.25):
+        super().__init__(z_dim, hidden_dim)
+        self.noise_std = noise_std
+
+    def _perturb(self, x):
+        x_p = x + torch.empty_like(x).normal_(0, self.noise_std)
+        return F.normalize(x_p, dim=1)
+
+    def criterion(self, x):
+        z = self(self._perturb(x))
+        recon_x = self.dec(z)
+        return F.mse_loss(recon_x, x)
+
+
 class VAE(nn.Module):
     def __init__(self, z_dim: int, hidden_dim: int, beta: float = 1e-3):
         super().__init__()

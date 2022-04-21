@@ -32,6 +32,7 @@ def get_dataloader(root, batch_size, train, model_name=None):
         "RP": datasets.CIFAR10,
         "PCA": datasets.CIFAR10,
         "AE": _ReconCIFAR10,
+        "DAE": _ReconCIFAR10,
         "VAE": _ReconCIFAR10,
         "SimCLR": _ContrastiveCIFAR10,
     }[model_name]
@@ -86,6 +87,7 @@ def get_model(model_name, z_dim, hidden_dim):
         "RP": GaussianRandomProjection(n_components=z_dim),
         "PCA": PCA(n_components=z_dim),
         "AE": ndr.AE(z_dim, hidden_dim).cuda(),
+        "DAE": ndr.DAE(z_dim, hidden_dim).cuda(),
         "VAE": ndr.VAE(z_dim, hidden_dim).cuda(),
         "SimCLR": ndr.SimCLR(z_dim, hidden_dim).cuda(),
     }[model_name]
