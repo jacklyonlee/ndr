@@ -87,4 +87,5 @@ def get_model(model_name, z_dim, hidden_dim):
         "PCA": PCA(n_components=z_dim),
         "AE": ndr.AE(z_dim, hidden_dim).cuda(),
         "VAE": ndr.VAE(z_dim, hidden_dim).cuda(),
+        "SimCLR": ndr.SimCLR(z_dim, hidden_dim).cuda(),
     }[model_name]

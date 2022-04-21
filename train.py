@@ -51,7 +51,12 @@ def main(model_name, z_dim, hidden_dim, batch_size, n_epochs):
         for _ in range(n_epochs):
             with tqdm.tqdm(loader) as t:
                 for x in t:
-                    loss = model.criterion(x.cuda())
+                    x = (
+                        x.cuda()
+                        if isinstance(x, torch.Tensor)
+                        else [_.cuda() for _ in x]
+                    )
+                    loss = model.criterion(x)
                     opt.zero_grad()
                     loss.backward()
                     opt.step()
@@ -65,7 +70,6 @@ def main(model_name, z_dim, hidden_dim, batch_size, n_epochs):
         model.fit(trainloader)
 
     # prepare test data
-    del trainloader
     trainloader = util.get_dataloader(root="./data", batch_size=batch_size, train=True)
     testloader = util.get_dataloader(root="./data", batch_size=batch_size, train=False)
 
