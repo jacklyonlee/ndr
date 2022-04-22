@@ -20,13 +20,27 @@ class AE(nn.Module):
 
 
 class DAE(AE):
-    def __init__(self, z_dim: int, hidden_dim: int, noise_std: float = 0.25):
+    def __init__(self, z_dim: int, hidden_dim: int, noise_std: float = 0.1):
         super().__init__(z_dim, hidden_dim)
         self.noise_std = noise_std
 
     def _perturb(self, x):
         x_p = x + torch.empty_like(x).normal_(0, self.noise_std)
         return F.normalize(x_p, dim=1)
+
+    def criterion(self, x):
+        z = self(self._perturb(x))
+        recon_x = self.dec(z)
+        return F.mse_loss(recon_x, x)
+
+
+class MAE(AE):
+    def __init__(self, z_dim: int, hidden_dim: int, mask_prob: float = 0.25):
+        super().__init__(z_dim, hidden_dim)
+        self.mask_prob = mask_prob
+
+    def _perturb(self, x):
+        return x * (torch.rand_like(x) > self.mask_prob)
 
     def criterion(self, x):
         z = self(self._perturb(x))

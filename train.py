@@ -18,7 +18,7 @@ def parse_args():
         required=True,
         help=(
             "Dimensionality reduction model "
-            "(supported models: RP, PCA, AE, DAE, VAE, SimCLR)."
+            "(supported models: RP, PCA, AE, DAE, MAE, VAE, SimCLR)."
         ),
     )
     parser.add_argument(

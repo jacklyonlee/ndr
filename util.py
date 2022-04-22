@@ -8,12 +8,11 @@ from sklearnex.decomposition import PCA
 import model.ndr as ndr
 
 
-class _ReconCIFAR10(datasets.CIFAR10):
+class _AECIFAR10(datasets.CIFAR10):
     def __getitem__(self, index):
         img = self.data[index]
         img = Image.fromarray(img)
-        x = self.transform(img)
-        return x
+        return self.transform(img)
 
 
 class _ContrastiveCIFAR10(datasets.CIFAR10):
@@ -31,9 +30,10 @@ def get_dataloader(root, batch_size, train, model_name=None):
         None: datasets.CIFAR10,
         "RP": datasets.CIFAR10,
         "PCA": datasets.CIFAR10,
-        "AE": _ReconCIFAR10,
-        "DAE": _ReconCIFAR10,
-        "VAE": _ReconCIFAR10,
+        "AE": _AECIFAR10,
+        "DAE": _AECIFAR10,
+        "MAE": _AECIFAR10,
+        "VAE": _AECIFAR10,
         "SimCLR": _ContrastiveCIFAR10,
     }[model_name]
     # define transform
@@ -88,6 +88,7 @@ def get_model(model_name, z_dim, hidden_dim):
         "PCA": PCA(n_components=z_dim),
         "AE": ndr.AE(z_dim, hidden_dim).cuda(),
         "DAE": ndr.DAE(z_dim, hidden_dim).cuda(),
+        "MAE": ndr.MAE(z_dim, hidden_dim).cuda(),
         "VAE": ndr.VAE(z_dim, hidden_dim).cuda(),
         "SimCLR": ndr.SimCLR(z_dim, hidden_dim).cuda(),
     }[model_name]
