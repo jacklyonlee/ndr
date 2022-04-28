@@ -88,21 +88,21 @@ def _get_loader(batch_size, train, model_name=None):
     )
 
 
-def _get_model(model_name, z_dim, hidden_dim):
+def _get_model(model_name, n_components, hidden_dim, noise_std, mask_prob, beta):
     return {
-        "RP": GaussianRandomProjection(n_components=z_dim),
-        "PCA": PCA(n_components=z_dim),
-        "AE": ndr.AE(z_dim, hidden_dim).cuda(),
-        "DAE": ndr.DAE(z_dim, hidden_dim).cuda(),
-        "MAE": ndr.MAE(z_dim, hidden_dim).cuda(),
-        "VAE": ndr.VAE(z_dim, hidden_dim).cuda(),
-        "SimCLR": ndr.SimCLR(z_dim, hidden_dim).cuda(),
-    }[model_name]
+        "RP": lambda: GaussianRandomProjection(n_components=n_components),
+        "PCA": lambda: PCA(n_components=n_components),
+        "AE": lambda: ndr.AE(n_components, hidden_dim).cuda(),
+        "DAE": lambda: ndr.DAE(n_components, hidden_dim, noise_std=noise_std).cuda(),
+        "MAE": lambda: ndr.MAE(n_components, hidden_dim, mask_prob=mask_prob).cuda(),
+        "VAE": lambda: ndr.VAE(n_components, hidden_dim, beta=beta).cuda(),
+        "SimCLR": lambda: ndr.SimCLR(n_components, hidden_dim).cuda(),
+    }[model_name]()
 
 
 def _train_model(model, trainloader, n_epochs):
     model.train()
-    opt = torch.optim.Adam(model.parameters())
+    opt = torch.optim.AdamW(model.parameters())
     for epoch in range(1, n_epochs + 1):
         with tqdm.tqdm(trainloader) as t:
             for x in t:
@@ -139,9 +139,25 @@ def _test_model(model, trainloader, testloader):
     return lp, knn, tsne
 
 
-def train(model_name, z_dim=256, hidden_dim=64, batch_size=512, n_epochs=10):
+def train(
+    model_name: str,
+    n_components: int = 256,
+    hidden_dim: int = 128,
+    batch_size: int = 512,
+    n_epochs: int = 20,
+    noise_std: float = 0.25,
+    mask_prob: float = 0.25,
+    beta: float = 1e-3,
+):
     trainloader = _get_loader(batch_size, train=True, model_name=model_name)
-    model = _get_model(model_name, z_dim, hidden_dim)
+    model = _get_model(
+        model_name,
+        n_components,
+        hidden_dim,
+        noise_std=noise_std,
+        mask_prob=mask_prob,
+        beta=beta,
+    )
     model = (
         _train_model(model, trainloader, n_epochs)
         if isinstance(model, torch.nn.Module)

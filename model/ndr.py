@@ -6,10 +6,10 @@ from .module import Decoder, Encoder
 
 
 class AE(nn.Module):
-    def __init__(self, z_dim: int, hidden_dim: int):
+    def __init__(self, n_components: int, hidden_dim: int):
         super().__init__()
-        self.enc = Encoder(z_dim, hidden_dim)
-        self.dec = Decoder(z_dim, hidden_dim)
+        self.enc = Encoder(n_components, hidden_dim)
+        self.dec = Decoder(n_components, hidden_dim)
 
     def forward(self, x):
         return self.enc(x)
@@ -20,8 +20,13 @@ class AE(nn.Module):
 
 
 class DAE(AE):
-    def __init__(self, z_dim: int, hidden_dim: int, noise_std: float = 0.1):
-        super().__init__(z_dim, hidden_dim)
+    def __init__(
+        self,
+        n_components: int,
+        hidden_dim: int,
+        noise_std: float = 0.1,
+    ):
+        super().__init__(n_components, hidden_dim)
         self.noise_std = noise_std
 
     def _perturb(self, x):
@@ -35,8 +40,13 @@ class DAE(AE):
 
 
 class MAE(AE):
-    def __init__(self, z_dim: int, hidden_dim: int, mask_prob: float = 0.25):
-        super().__init__(z_dim, hidden_dim)
+    def __init__(
+        self,
+        n_components: int,
+        hidden_dim: int,
+        mask_prob: float = 0.25,
+    ):
+        super().__init__(n_components, hidden_dim)
         self.mask_prob = mask_prob
 
     def _perturb(self, x):
@@ -49,10 +59,15 @@ class MAE(AE):
 
 
 class VAE(nn.Module):
-    def __init__(self, z_dim: int, hidden_dim: int, beta: float = 1e-3):
+    def __init__(
+        self,
+        n_components: int,
+        hidden_dim: int,
+        beta: float = 1e-3,
+    ):
         super().__init__()
-        self.enc = Encoder(z_dim * 2, hidden_dim)
-        self.dec = Decoder(z_dim, hidden_dim)
+        self.enc = Encoder(n_components * 2, hidden_dim)
+        self.dec = Decoder(n_components, hidden_dim)
         self.beta = beta
 
     def _reparameterize(self, z):
@@ -74,15 +89,19 @@ class VAE(nn.Module):
 
 class SimCLR(nn.Module):
     def __init__(
-        self, z_dim: int, hidden_dim: int, proj_dim: int = 128, tau: float = 0.5
+        self,
+        n_components: int,
+        hidden_dim: int,
+        proj_dim: int = 128,
+        tau: float = 0.5,
     ):
         super().__init__()
-        self.enc = Encoder(z_dim, hidden_dim)
+        self.enc = Encoder(n_components, hidden_dim)
         self.proj = nn.Sequential(
-            nn.Linear(z_dim, z_dim, bias=False),
-            nn.BatchNorm1d(z_dim),
+            nn.Linear(n_components, n_components, bias=False),
+            nn.BatchNorm1d(n_components),
             nn.ReLU(inplace=True),
-            nn.Linear(z_dim, proj_dim, bias=True),
+            nn.Linear(n_components, proj_dim, bias=True),
         )
         self.tau = tau
 
