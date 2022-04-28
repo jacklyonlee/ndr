@@ -98,7 +98,6 @@ class SimCLR(nn.Module):
         super().__init__()
         self.enc = Encoder(n_components, hidden_dim)
         self.proj = nn.Sequential(
-            nn.Linear(n_components, n_components, bias=False),
             nn.BatchNorm1d(n_components),
             nn.ReLU(inplace=True),
             nn.Linear(n_components, proj_dim, bias=True),
@@ -109,8 +108,7 @@ class SimCLR(nn.Module):
         return self.enc(x)
 
     def criterion(self, x):
-        z_i = self.proj(self(x[0]))
-        z_j = self.proj(self(x[1]))
+        z_i, z_j = (self.proj(self(_)) for _ in x)
         z = torch.cat([z_i, z_j], dim=0)
         # compute similarity matrix
         sim = (z @ z.T) / (
@@ -118,9 +116,10 @@ class SimCLR(nn.Module):
             @ torch.linalg.norm(z.T, dim=0, keepdim=True)
         )
         # compute denominator
+        N = z.size(0)
         exp = torch.exp(sim / self.tau)
-        mask = (torch.ones_like(exp) - torch.eye(z.size(0)).to(exp)).bool()
-        exp = exp.masked_select(mask).view(z.size(0), -1)
+        mask = (torch.ones_like(exp) - torch.eye(N).to(z)).bool()
+        exp = exp.masked_select(mask).view(N, -1)
         denom = exp.sum(dim=1, keepdim=True)
         # compute positive pairs
         pos = (z_i * z_j).sum(dim=1, keepdim=True) / (
@@ -129,4 +128,4 @@ class SimCLR(nn.Module):
         )
         # compute numerator
         num = torch.exp(pos / self.tau).repeat(2, 1)
-        return (-torch.log(num / denom)).sum() / z.size(0)
+        return -torch.log(num / denom).sum() / N

@@ -25,8 +25,8 @@ class ResBlock(nn.Module):
 
 
 class Encoder(nn.Sequential):
-    def __init__(self, z_dim: int, hidden_dim: int):
-        assert z_dim % 64 == 0
+    def __init__(self, n_components: int, hidden_dim: int):
+        assert n_components % 64 == 0
         super().__init__(
             # downsample
             nn.Conv2d(
@@ -53,31 +53,25 @@ class Encoder(nn.Sequential):
             ResBlock(hidden_dim, hidden_dim, bn=True),
             nn.BatchNorm2d(hidden_dim),
             ResBlock(hidden_dim, hidden_dim, bn=True),
-            # [B, hidden_dim, 8, 8] -> [B, z_dim]
-            nn.Conv2d(
-                hidden_dim,
-                z_dim // 64,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            ),
+            # [B, hidden_dim, 8, 8] -> [B, n_components]
             nn.Flatten(),
+            nn.Linear(hidden_dim * 64, n_components, bias=False),
+            nn.BatchNorm1d(n_components),
+            nn.ReLU(inplace=True),
+            nn.Linear(n_components, n_components, bias=True),
         )
 
 
 class Decoder(nn.Sequential):
-    def __init__(self, z_dim: int, hidden_dim: int):
-        assert z_dim % 64 == 0
+    def __init__(self, n_components: int, hidden_dim: int):
+        assert n_components % 64 == 0
         super().__init__(
-            # [B, z_dim] -> [B, hidden_dim, 8, 8]
-            nn.Unflatten(1, (z_dim // 64, 8, 8)),
-            nn.Conv2d(
-                z_dim // 64,
-                hidden_dim,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            ),
+            # [B, n_components] -> [B, hidden_dim, 8, 8]
+            nn.Linear(n_components, n_components, bias=True),
+            nn.ReLU(inplace=True),
+            nn.BatchNorm1d(n_components),
+            nn.Linear(n_components, hidden_dim * 64, bias=False),
+            nn.Unflatten(1, (hidden_dim, 8, 8)),
             # residual bottleneck
             ResBlock(hidden_dim, hidden_dim, bn=True),
             nn.BatchNorm2d(hidden_dim),

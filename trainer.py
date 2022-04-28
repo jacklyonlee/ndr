@@ -141,12 +141,12 @@ def _test_model(model, trainloader, testloader):
 
 def train(
     model_name: str,
-    n_components: int = 256,
+    n_components: int = 512,
     hidden_dim: int = 128,
     batch_size: int = 512,
     n_epochs: int = 20,
-    noise_std: float = 0.25,
-    mask_prob: float = 0.25,
+    noise_std: float = 0.1,
+    mask_prob: float = 0.1,
     beta: float = 1e-3,
 ):
     trainloader = _get_loader(batch_size, train=True, model_name=model_name)
