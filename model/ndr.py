@@ -49,11 +49,11 @@ class MAE(AE):
         super().__init__(n_components, hidden_dim)
         self.mask_prob = mask_prob
 
-    def _perturb(self, x):
+    def _mask(self, x):
         return x * (torch.rand_like(x) > self.mask_prob)
 
     def criterion(self, x):
-        z = self(self._perturb(x))
+        z = self(self._mask(x))
         recon_x = self.dec(z)
         return F.mse_loss(recon_x, x)
 

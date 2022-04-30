@@ -1,4 +1,3 @@
-import collections
 import os
 
 import matplotlib.pyplot as plt
@@ -9,7 +8,7 @@ import tqdm
 
 import trainer
 
-sns.color_palette("tab10")
+sns.color_palette("deep")
 sns.set_theme(style="darkgrid")
 
 
@@ -66,10 +65,24 @@ def run_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas
 
 def _get_metrics(out_dir, filename):
     data = np.load(os.path.join(out_dir, filename), allow_pickle=True).item()
-    lp = sum(data.get("LP")) / len(data.get("LP"))
-    knn = sum(data.get("KNN")) / len(data.get("KNN"))
+    lp = data.get("LP")
+    knn = data.get("KNN")
     tsne = data.get("TSNE")[0]
     return lp, knn, tsne
+
+
+def _plot_fig(out_dir, filename):
+    plt.legend(
+        bbox_to_anchor=(1.02, 1),
+        loc=2,
+        borderaxespad=0,
+        frameon=False,
+    )
+    plt.savefig(
+        os.path.join(out_dir, f"{filename}.png"),
+        bbox_inches="tight",
+    )
+    plt.clf()
 
 
 def _plot_tsne(
@@ -89,63 +102,56 @@ def _plot_tsne(
         "truck",
     ],
 ):
-    df = pd.DataFrame(
-        {
-            "x": tsne[:, 0],
-            "y": tsne[:, 1],
-            "class": [class_names[int(i)] for i in tsne[:, 2]],
-        }
-    )
-    sns.scatterplot(x="x", y="y", hue="class", data=df)
-    plt.savefig(os.path.join(out_dir, f"{filename}-TSNE.png"))
-    plt.clf()
-
-
-def _plot_metric(out_dir, filename, data, id_name, metric, var_name=None):
-    sns.lineplot(
-        x=id_name,
-        y=metric,
-        hue=var_name,
-        data=pd.DataFrame(data)
-        if var_name is None
-        else pd.melt(
-            pd.DataFrame(data),
-            id_vars=[id_name],
-            var_name=var_name,
-            value_name=metric,
+    sns.scatterplot(
+        x="x",
+        y="y",
+        hue="class",
+        linewidth=0,
+        data=pd.DataFrame(
+            {
+                "x": tsne[:, 0],
+                "y": tsne[:, 1],
+                "class": [class_names[int(i)] for i in tsne[:, 2]],
+            }
         ),
     )
-    plt.savefig(os.path.join(out_dir, f"{filename}-{metric}.png"))
-    plt.clf()
+    _plot_fig(out_dir, f"{filename}-TSNE")
+
+
+def _plot_metric(out_dir, filename, data, x_name, y_name, hue_name):
+    sns.lineplot(
+        x=x_name,
+        y=y_name,
+        hue=hue_name,
+        ci=95,
+        data=pd.DataFrame(
+            data,
+            columns=[x_name, y_name, hue_name],
+        ),
+    )
+    _plot_fig(out_dir, f"{filename}-{y_name}")
 
 
 def _plot_nc(out_dir, filename, model_names, n_components):
-    lp_data = collections.defaultdict(list)
-    knn_data = collections.defaultdict(list)
+    lp_data, knn_data = [], []
     for nc in tqdm.tqdm(n_components):
-        lp_data["n_components"].append(str(nc))
-        knn_data["n_components"].append(str(nc))
         for model_name in model_names:
             lp, knn, tsne = _get_metrics(out_dir, f"{model_name}-{nc}")
-            lp_data[model_name].append(lp)
-            knn_data[model_name].append(knn)
+            lp_data.extend([[str(nc), _, model_name] for _ in lp])
+            knn_data.extend([[str(nc), _, model_name] for _ in knn])
             _plot_tsne(out_dir, f"{model_name}-{nc}", tsne)
     _plot_metric(out_dir, filename, lp_data, "n_components", "LP", "model")
     _plot_metric(out_dir, filename, knn_data, "n_components", "KNN", "model")
 
 
 def _plot_param(out_dir, filename, param_name, params):
-    lp_data = collections.defaultdict(list)
-    knn_data = collections.defaultdict(list)
+    data = []
     for param in tqdm.tqdm(params):
-        lp_data[param_name].append(str(param))
-        knn_data[param_name].append(str(param))
         lp, knn, tsne = _get_metrics(out_dir, f"{filename}{param}")
-        lp_data["LP"].append(lp)
-        knn_data["KNN"].append(knn)
+        data.extend([[str(param), _, "LP"] for _ in lp])
+        data.extend([[str(param), _, "KNN"] for _ in knn])
         _plot_tsne(out_dir, f"{filename}{param}", tsne)
-    _plot_metric(out_dir, filename, lp_data, param_name, "LP")
-    _plot_metric(out_dir, filename, knn_data, param_name, "KNN")
+    _plot_metric(out_dir, filename, data, param_name, "accuracy", "metric")
 
 
 def plot_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas):
