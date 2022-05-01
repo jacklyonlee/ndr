@@ -13,61 +13,64 @@ sns.set_theme(style="darkgrid")
 
 
 def _run_trials(out_dir, filename, n_trials=5, **kwargs):
-    results = {"LP": [], "KNN": [], "TSNE": []}
+    results = {"lp": [], "knn": [], "tsne": []}
     for _ in range(n_trials):
         lp, knn, tsne = trainer.train(**kwargs)
-        print(filename, "LP-ACC", lp, "KNN-ACC", knn)
-        results["LP"].append(lp)
-        results["KNN"].append(knn)
-        results["TSNE"].append(tsne)
-    with open(os.path.join(out_dir, filename), "wb+") as f:
+        print(filename, "lp-acc", lp, "knn-acc", knn)
+        results["lp"].append(lp)
+        results["knn"].append(knn)
+        results["tsne"].append(tsne)
+    with open(os.path.join(out_dir, f"{filename}.npy"), "wb+") as f:
         np.save(f, results)
 
 
 def run_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas):
     # test different n_components
     for model_name in model_names:
-        for nc in n_components:
+        for n_c in n_components:
             _run_trials(
                 out_dir,
-                f"{model_name}-{nc}",
+                f"{model_name}-{n_c}",
                 model_name=model_name,
-                n_components=nc,
+                n_components=n_c,
             )
     # test different noise levels
     for noise_std in noise_stds:
         _run_trials(
             out_dir,
-            f"DAE-512-NS{noise_std}",
+            f"DAE-128-noise{noise_std}",
             model_name="DAE",
-            n_components=512,
+            n_components=128,
             noise_std=noise_std,
         )
     # test different mask probs
     for mask_prob in mask_probs:
         _run_trials(
             out_dir,
-            f"MAE-512-MP{mask_prob}",
+            f"MAE-128-mask{mask_prob}",
             model_name="MAE",
-            n_components=512,
+            n_components=128,
             mask_prob=mask_prob,
         )
     # test different betas
     for beta in betas:
         _run_trials(
             out_dir,
-            f"VAE-512-B{beta}",
+            f"VAE-128-beta{beta}",
             model_name="VAE",
-            n_components=512,
+            n_components=128,
             beta=beta,
         )
 
 
 def _get_metrics(out_dir, filename):
-    data = np.load(os.path.join(out_dir, filename), allow_pickle=True).item()
-    lp = data.get("LP")
-    knn = data.get("KNN")
-    tsne = data.get("TSNE")[0]
+    data = np.load(
+        os.path.join(out_dir, filename),
+        allow_pickle=True,
+    ).item()
+    lp = data.get("lp")
+    knn = data.get("knn")
+    tsne = data.get("tsne")[0]
     return lp, knn, tsne
 
 
@@ -115,7 +118,7 @@ def _plot_tsne(
             }
         ),
     )
-    _plot_fig(out_dir, f"{filename}-TSNE")
+    _plot_fig(out_dir, f"{filename}-tsne")
 
 
 def _plot_metric(out_dir, filename, data, x_name, y_name, hue_name):
@@ -132,33 +135,33 @@ def _plot_metric(out_dir, filename, data, x_name, y_name, hue_name):
     _plot_fig(out_dir, f"{filename}-{y_name}")
 
 
-def _plot_nc(out_dir, filename, model_names, n_components):
+def _plot_n_components(out_dir, filename, model_names, n_components):
     lp_data, knn_data = [], []
-    for nc in tqdm.tqdm(n_components):
+    for n_c in tqdm.tqdm(n_components):
         for model_name in model_names:
-            lp, knn, tsne = _get_metrics(out_dir, f"{model_name}-{nc}")
-            lp_data.extend([[str(nc), _, model_name] for _ in lp])
-            knn_data.extend([[str(nc), _, model_name] for _ in knn])
-            _plot_tsne(out_dir, f"{model_name}-{nc}", tsne)
-    _plot_metric(out_dir, filename, lp_data, "n_components", "LP", "model")
-    _plot_metric(out_dir, filename, knn_data, "n_components", "KNN", "model")
+            lp, knn, tsne = _get_metrics(out_dir, f"{model_name}-{n_c}.npy")
+            lp_data.extend([[str(n_c), _, model_name] for _ in lp])
+            knn_data.extend([[str(n_c), _, model_name] for _ in knn])
+            _plot_tsne(out_dir, f"{model_name}-{n_c}", tsne)
+    _plot_metric(out_dir, filename, lp_data, "n_components", "lp", "model")
+    _plot_metric(out_dir, filename, knn_data, "n_components", "knn", "model")
 
 
 def _plot_param(out_dir, filename, param_name, params):
     data = []
     for param in tqdm.tqdm(params):
-        lp, knn, tsne = _get_metrics(out_dir, f"{filename}{param}")
-        data.extend([[str(param), _, "LP"] for _ in lp])
-        data.extend([[str(param), _, "KNN"] for _ in knn])
+        lp, knn, tsne = _get_metrics(out_dir, f"{filename}{param}.npy")
+        data.extend([[str(param), _, "lp"] for _ in lp])
+        data.extend([[str(param), _, "knn"] for _ in knn])
         _plot_tsne(out_dir, f"{filename}{param}", tsne)
-    _plot_metric(out_dir, filename, data, param_name, "accuracy", "metric")
+    _plot_metric(out_dir, filename, data, param_name, "acc", "metric")
 
 
 def plot_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas):
-    _plot_nc(out_dir, "NC", model_names, n_components)
-    _plot_param(out_dir, "DAE-512-NS", "noise_std", noise_stds)
-    _plot_param(out_dir, "MAE-512-MP", "mask_prob", mask_probs)
-    _plot_param(out_dir, "VAE-512-B", "beta", betas)
+    n_components and _plot_n_components(out_dir, "NC", model_names, n_components)
+    noise_stds and _plot_param(out_dir, "DAE-128-noise", "noise_std", noise_stds)
+    mask_probs and _plot_param(out_dir, "MAE-128-mask", "mask_prob", mask_probs)
+    betas and _plot_param(out_dir, "VAE-128-beta", "beta", betas)
 
 
 if __name__ == "__main__":
@@ -168,7 +171,7 @@ if __name__ == "__main__":
         [128, 256, 512, 1024],
         [0, 0.1, 0.25, 0.5, 1],
         [0, 0.1, 0.25, 0.5, 0.75],
-        [1e-3, 1e-2, 1e-1],
+        [1e-4, 1e-3, 1e-2, 1e-1],
     )
     run_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas)
     plot_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas)

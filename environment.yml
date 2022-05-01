@@ -10,3 +10,4 @@ dependencies:
   - pytorch::pytorch=1.11.0
   - torchvision
   - scikit-learn-intelex
+  - seaborn
