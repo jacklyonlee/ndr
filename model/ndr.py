@@ -39,25 +39,6 @@ class DAE(AE):
         return F.mse_loss(recon_x, x)
 
 
-class MAE(AE):
-    def __init__(
-        self,
-        n_components: int,
-        hidden_dim: int,
-        mask_prob: float = 0.25,
-    ):
-        super().__init__(n_components, hidden_dim)
-        self.mask_prob = mask_prob
-
-    def _mask(self, x):
-        return x * (torch.rand_like(x) > self.mask_prob)
-
-    def criterion(self, x):
-        z = self(self._mask(x))
-        recon_x = self.dec(z)
-        return F.mse_loss(recon_x, x)
-
-
 class VAE(nn.Module):
     def __init__(
         self,

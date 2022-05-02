@@ -24,7 +24,7 @@ def _run_trials(out_dir, filename, n_trials=5, **kwargs):
         np.save(f, results)
 
 
-def run_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas):
+def run_models(out_dir, model_names, n_components, noise_stds, betas):
     # test different n_components
     for model_name in model_names:
         for n_c in n_components:
@@ -42,15 +42,6 @@ def run_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas
             model_name="DAE",
             n_components=128,
             noise_std=noise_std,
-        )
-    # test different mask probs
-    for mask_prob in mask_probs:
-        _run_trials(
-            out_dir,
-            f"MAE-128-mask{mask_prob}",
-            model_name="MAE",
-            n_components=128,
-            mask_prob=mask_prob,
         )
     # test different betas
     for beta in betas:
@@ -157,21 +148,19 @@ def _plot_param(out_dir, filename, param_name, params):
     _plot_metric(out_dir, filename, data, param_name, "acc", "metric")
 
 
-def plot_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas):
+def plot_models(out_dir, model_names, n_components, noise_stds, betas):
     n_components and _plot_n_components(out_dir, "NC", model_names, n_components)
     noise_stds and _plot_param(out_dir, "DAE-128-noise", "noise_std", noise_stds)
-    mask_probs and _plot_param(out_dir, "MAE-128-mask", "mask_prob", mask_probs)
     betas and _plot_param(out_dir, "VAE-128-beta", "beta", betas)
 
 
 if __name__ == "__main__":
-    out_dir, model_names, n_components, noise_stds, mask_probs, betas = (
+    out_dir, model_names, n_components, noise_stds, betas = (
         "./out",
-        ["RP", "PCA", "AE", "DAE", "MAE", "VAE", "SimCLR"],
+        ["RP", "PCA", "AE", "DAE", "VAE", "SimCLR"],
         [128, 256, 512, 1024],
         [0, 0.1, 0.25, 0.5, 1],
-        [0, 0.1, 0.25, 0.5, 0.75],
         [1e-4, 1e-3, 1e-2, 1e-1],
     )
-    run_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas)
-    plot_models(out_dir, model_names, n_components, noise_stds, mask_probs, betas)
+    run_models(out_dir, model_names, n_components, noise_stds, betas)
+    plot_models(out_dir, model_names, n_components, noise_stds, betas)

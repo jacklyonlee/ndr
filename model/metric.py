@@ -10,7 +10,7 @@ def compute_lp(
     Z_te: np.ndarray,
     Y_te: np.ndarray,
 ):
-    lp = LogisticRegression(random_state=0, max_iter=5000).fit(Z_tr, Y_tr)
+    lp = LogisticRegression(random_state=0, max_iter=8000).fit(Z_tr, Y_tr)
     return lp.score(Z_te, Y_te)
 
 

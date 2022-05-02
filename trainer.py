@@ -34,7 +34,6 @@ def _get_loader(batch_size, train, model_name=None):
         "PCA": torchvision.datasets.CIFAR10,
         "AE": _AECIFAR10,
         "DAE": _AECIFAR10,
-        "MAE": _AECIFAR10,
         "VAE": _AECIFAR10,
         "SimCLR": _SimCLRCIFAR10,
     }[model_name]
@@ -88,13 +87,12 @@ def _get_loader(batch_size, train, model_name=None):
     )
 
 
-def _get_model(model_name, n_components, hidden_dim, noise_std, mask_prob, beta):
+def _get_model(model_name, n_components, hidden_dim, noise_std, beta):
     return {
         "RP": lambda: GaussianRandomProjection(n_components=n_components),
         "PCA": lambda: PCA(n_components=n_components),
         "AE": lambda: ndr.AE(n_components, hidden_dim).cuda(),
         "DAE": lambda: ndr.DAE(n_components, hidden_dim, noise_std=noise_std).cuda(),
-        "MAE": lambda: ndr.MAE(n_components, hidden_dim, mask_prob=mask_prob).cuda(),
         "VAE": lambda: ndr.VAE(n_components, hidden_dim, beta=beta).cuda(),
         "SimCLR": lambda: ndr.SimCLR(n_components, hidden_dim).cuda(),
     }[model_name]()
@@ -146,7 +144,6 @@ def train(
     batch_size: int = 512,
     n_epochs: int = 20,
     noise_std: float = 0.1,
-    mask_prob: float = 0.5,
     beta: float = 1e-3,
 ):
     trainloader = _get_loader(batch_size, train=True, model_name=model_name)
@@ -155,7 +152,6 @@ def train(
         n_components,
         hidden_dim,
         noise_std=noise_std,
-        mask_prob=mask_prob,
         beta=beta,
     )
     model = (
