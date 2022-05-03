@@ -1,29 +1,39 @@
 import numpy as np
-from sklearnex.linear_model import LogisticRegression
-from sklearnex.manifold import TSNE
-from sklearnex.neighbors import KNeighborsClassifier
+import sklearnex.linear_model as linear_model
+import sklearnex.manifold as manifold
+import sklearnex.neighbors as neighbors
 
 
 def compute_lp(
-    Z_tr: np.ndarray,
-    Y_tr: np.ndarray,
-    Z_te: np.ndarray,
-    Y_te: np.ndarray,
-):
-    lp = LogisticRegression(random_state=0, max_iter=8000).fit(Z_tr, Y_tr)
-    return lp.score(Z_te, Y_te)
+    z_tr: np.ndarray,
+    y_tr: np.ndarray,
+    z_te: np.ndarray,
+    y_te: np.ndarray,
+) -> float:
+    lp = linear_model.LogisticRegression(
+        random_state=0,
+        max_iter=5000,
+    ).fit(z_tr, y_tr)
+    return float(lp.score(z_te, y_te))
 
 
 def compute_knn(
-    Z_tr: np.ndarray,
-    Y_tr: np.ndarray,
-    Z_te: np.ndarray,
-    Y_te: np.ndarray,
-):
-    knn = KNeighborsClassifier(n_neighbors=1, algorithm="ball_tree").fit(Z_tr, Y_tr)
-    return knn.score(Z_te, Y_te)
+    z_tr: np.ndarray,
+    y_tr: np.ndarray,
+    z_te: np.ndarray,
+    y_te: np.ndarray,
+) -> float:
+    knn = neighbors.KNeighborsClassifier(
+        n_neighbors=1,
+        algorithm="ball_tree",
+    ).fit(z_tr, y_tr)
+    return float(knn.score(z_te, y_te))
 
 
-def compute_tsne(Z: np.ndarray, Y: np.ndarray):
-    emb = TSNE(n_components=2, learning_rate="auto", init="pca").fit_transform(Z)
-    return np.concatenate((emb, Y[:, np.newaxis]), axis=1)
+def compute_tsne(z: np.ndarray, y: np.ndarray) -> np.ndarray:
+    emb = manifold.TSNE(
+        n_components=2,
+        learning_rate="auto",
+        init="pca",
+    ).fit_transform(z)
+    return np.concatenate((emb, y[:, np.newaxis]), axis=1)

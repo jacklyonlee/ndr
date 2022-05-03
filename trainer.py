@@ -1,24 +1,29 @@
+from typing import Optional, Tuple, Union
+
 import numpy as np
+import sklearn.base as base
+import sklearn.random_projection as random_projection
+import sklearnex.decomposition as decomposition
 import torch
+import torch.nn as nn
 import torchvision
 import tqdm
 from PIL import Image
-from sklearn.random_projection import GaussianRandomProjection
-from sklearnex.decomposition import PCA
+from torch.utils.data.dataloader import DataLoader
 
 import model.metric as metric
 import model.ndr as ndr
 
 
 class _AECIFAR10(torchvision.datasets.CIFAR10):
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> torch.Tensor:
         img = self.data[index]
         img = Image.fromarray(img)
         return self.transform(img)
 
 
 class _SimCLRCIFAR10(torchvision.datasets.CIFAR10):
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         img = self.data[index]
         img = Image.fromarray(img)
         x_i = self.transform(img)
@@ -26,20 +31,8 @@ class _SimCLRCIFAR10(torchvision.datasets.CIFAR10):
         return x_i, x_j
 
 
-def _get_loader(batch_size, train, model_name=None):
-    # retrieve dataset
-    CIFAR10 = {
-        None: torchvision.datasets.CIFAR10,
-        "RP": torchvision.datasets.CIFAR10,
-        "PCA": torchvision.datasets.CIFAR10,
-        "AE": _AECIFAR10,
-        "DAE": _AECIFAR10,
-        "VAE": _AECIFAR10,
-        "SimCLR": _SimCLRCIFAR10,
-    }[model_name]
-
-    # define transform
-    transform = (
+def _get_transform(is_simclr: bool) -> torchvision.transforms.Compose:
+    return (
         torchvision.transforms.Compose(
             [
                 # Randomly resize and crop to 32x32.
@@ -58,7 +51,7 @@ def _get_loader(batch_size, train, model_name=None):
                 ),
             ]
         )
-        if model_name == "SimCLR"
+        if is_simclr
         else torchvision.transforms.Compose(
             [
                 torchvision.transforms.ToTensor(),
@@ -69,17 +62,30 @@ def _get_loader(batch_size, train, model_name=None):
         )
     )
 
-    # make dataset & loader
-    dataset = CIFAR10(
+
+def _get_loader(
+    batch_size: int,
+    train: bool,
+    model_name: Optional[str] = None,
+) -> Union[np.ndarray, DataLoader]:
+    dataset = {
+        None: torchvision.datasets.CIFAR10,
+        "rp": torchvision.datasets.CIFAR10,
+        "pca": torchvision.datasets.CIFAR10,
+        "ae": _AECIFAR10,
+        "dae": _AECIFAR10,
+        "vae": _AECIFAR10,
+        "simclr": _SimCLRCIFAR10,
+    }[model_name](
         root="./data",
         train=train,
         download=True,
-        transform=transform,
+        transform=_get_transform(model_name == "simclr"),
     )
     return (
         dataset.data.astype(float).reshape(-1, 3072)
-        if model_name in ("RP", "PCA")
-        else torch.utils.data.DataLoader(
+        if model_name in ("rp", "pca")
+        else DataLoader(
             dataset,
             batch_size=batch_size,
             shuffle=train,
@@ -87,25 +93,37 @@ def _get_loader(batch_size, train, model_name=None):
     )
 
 
-def _get_model(model_name, n_components, hidden_dim, noise_std, beta):
+def _get_model(
+    model_name: str,
+    n_components: int,
+    hidden_dim: int,
+    noise_std: float,
+    beta: float,
+) -> Union[base.BaseEstimator, nn.Module]:
     return {
-        "RP": lambda: GaussianRandomProjection(n_components=n_components),
-        "PCA": lambda: PCA(n_components=n_components),
-        "AE": lambda: ndr.AE(n_components, hidden_dim).cuda(),
-        "DAE": lambda: ndr.DAE(n_components, hidden_dim, noise_std=noise_std).cuda(),
-        "VAE": lambda: ndr.VAE(n_components, hidden_dim, beta=beta).cuda(),
-        "SimCLR": lambda: ndr.SimCLR(n_components, hidden_dim).cuda(),
+        "rp": lambda: random_projection.GaussianRandomProjection(n_components),
+        "pca": lambda: decomposition.PCA(n_components),
+        "ae": lambda: ndr.AE(n_components, hidden_dim).cuda(),
+        "dae": lambda: ndr.DAE(n_components, hidden_dim, noise_std).cuda(),
+        "vae": lambda: ndr.VAE(n_components, hidden_dim, beta).cuda(),
+        "simclr": lambda: ndr.SimCLR(n_components, hidden_dim).cuda(),
     }[model_name]()
 
 
-def _train_model(model, trainloader, n_epochs):
+def _train_model(
+    model: nn.Module,
+    trainloader: DataLoader,
+    n_epochs: int,
+) -> nn.Module:
     model.train()
     opt = torch.optim.AdamW(model.parameters())
     for epoch in range(1, n_epochs + 1):
         with tqdm.tqdm(trainloader) as t:
             for x in t:
                 loss = model.criterion(
-                    x.cuda() if isinstance(x, torch.Tensor) else [_.cuda() for _ in x]
+                    x.cuda()
+                    if isinstance(x, torch.Tensor)
+                    else tuple(_.cuda() for _ in x)
                 )
                 opt.zero_grad()
                 loss.backward()
@@ -114,39 +132,47 @@ def _train_model(model, trainloader, n_epochs):
     return model.eval()
 
 
-def _test_model(model, trainloader, testloader):
+def _test_model(
+    model: Union[base.BaseEstimator, nn.Module],
+    trainloader: DataLoader,
+    testloader: DataLoader,
+) -> Tuple[float, float, np.ndarray]:
     @torch.no_grad()
-    def get_features(loader):
+    def get_features(loader: DataLoader):
         # encode dataset with ndr model
-        Z, Y = [], []
+        z_, y_ = [], []
         for x, y in tqdm.tqdm(loader):
             if isinstance(model, torch.nn.Module):
                 z = model(x.cuda()).cpu().numpy()
             else:  # baseline
                 x = torch.flatten(x, start_dim=1).numpy()
                 z = model.transform(x)
-            Z.append(z)
-            Y.append(y)
-        return np.concatenate(Z), np.concatenate(Y)
+            z_.append(z)
+            y_.append(y)
+        return np.concatenate(z_), np.concatenate(y_)
 
-    Z_tr, Y_tr = get_features(trainloader)
-    Z_te, Y_te = get_features(testloader)
-    lp = metric.compute_lp(Z_tr, Y_tr, Z_te, Y_te)
-    knn = metric.compute_knn(Z_tr, Y_tr, Z_te, Y_te)
-    tsne = metric.compute_tsne(Z_te, Y_te)
+    z_tr, y_tr = get_features(trainloader)
+    z_te, y_te = get_features(testloader)
+    lp = metric.compute_lp(z_tr, y_tr, z_te, y_te)
+    knn = metric.compute_knn(z_tr, y_tr, z_te, y_te)
+    tsne = metric.compute_tsne(z_te, y_te)
     return lp, knn, tsne
 
 
 def train(
     model_name: str,
-    n_components: int = 128,
+    n_components: int = 512,
     hidden_dim: int = 128,
     batch_size: int = 512,
     n_epochs: int = 20,
     noise_std: float = 0.1,
     beta: float = 1e-3,
-):
-    trainloader = _get_loader(batch_size, train=True, model_name=model_name)
+) -> Tuple[float, float, np.ndarray]:
+    trainloader = _get_loader(
+        batch_size,
+        train=True,
+        model_name=model_name,
+    )
     model = _get_model(
         model_name,
         n_components,
@@ -159,6 +185,8 @@ def train(
         if isinstance(model, torch.nn.Module)
         else model.fit(trainloader)
     )
-    trainloader = _get_loader(batch_size, train=True)
-    testloader = _get_loader(batch_size, train=False)
-    return _test_model(model, trainloader, testloader)
+    return _test_model(
+        model,
+        _get_loader(batch_size, train=True),
+        _get_loader(batch_size, train=False),
+    )

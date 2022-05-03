@@ -1,4 +1,6 @@
 import os
+import pickle
+from typing import List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,7 +14,12 @@ sns.color_palette("deep")
 sns.set_theme(style="darkgrid")
 
 
-def _run_trials(out_dir, filename, n_trials=5, **kwargs):
+def _run_trials(
+    out_dir: str,
+    filename: str,
+    n_trials: int = 5,
+    **kwargs,
+) -> None:
     results = {"lp": [], "knn": [], "tsne": []}
     for _ in range(n_trials):
         lp, knn, tsne = trainer.train(**kwargs)
@@ -20,52 +27,58 @@ def _run_trials(out_dir, filename, n_trials=5, **kwargs):
         results["lp"].append(lp)
         results["knn"].append(knn)
         results["tsne"].append(tsne)
-    with open(os.path.join(out_dir, f"{filename}.npy"), "wb+") as f:
-        np.save(f, results)
+    with open(os.path.join(out_dir, f"{filename}.pkl"), "wb+") as f:
+        pickle.dump(results, f)
 
 
-def run_models(out_dir, model_names, n_components, noise_stds, betas):
+def _run_models(
+    out_dir: str,
+    model_names: List[str],
+    n_components: List[int],
+    noise_stds: List[float],
+    betas: List[float],
+) -> None:
     # test different n_components
     for model_name in model_names:
-        for n_c in n_components:
+        for nc in n_components:
             _run_trials(
                 out_dir,
-                f"{model_name}-{n_c}",
+                f"{model_name}-{nc}",
                 model_name=model_name,
-                n_components=n_c,
+                n_components=nc,
             )
     # test different noise levels
     for noise_std in noise_stds:
         _run_trials(
             out_dir,
-            f"DAE-128-noise{noise_std}",
-            model_name="DAE",
-            n_components=128,
+            f"dae-128-noise{noise_std}",
+            model_name="dae",
+            n_components=512,
             noise_std=noise_std,
         )
     # test different betas
     for beta in betas:
         _run_trials(
             out_dir,
-            f"VAE-128-beta{beta}",
-            model_name="VAE",
-            n_components=128,
+            f"vae-128-beta{beta}",
+            model_name="vae",
+            n_components=512,
             beta=beta,
         )
 
 
-def _get_metrics(out_dir, filename):
-    data = np.load(
-        os.path.join(out_dir, filename),
-        allow_pickle=True,
-    ).item()
-    lp = data.get("lp")
-    knn = data.get("knn")
-    tsne = data.get("tsne")[0]
-    return lp, knn, tsne
+def _get_metrics(
+    out_dir: str, filename: str
+) -> Tuple[List[float], List[float], np.ndarray]:
+    with open(os.path.join(out_dir, f"{filename}.pkl"), "rb") as f:
+        data = pickle.load(f)
+        lp = data.get("lp")
+        knn = data.get("knn")
+        tsne = data.get("tsne")[0]
+        return lp, knn, tsne
 
 
-def _plot_fig(out_dir, filename):
+def _plot_fig(out_dir: str, filename: str) -> None:
     plt.legend(
         bbox_to_anchor=(1.02, 1),
         loc=2,
@@ -80,10 +93,10 @@ def _plot_fig(out_dir, filename):
 
 
 def _plot_tsne(
-    out_dir,
-    filename,
-    tsne,
-    class_names=[
+    out_dir: str,
+    filename: str,
+    tsne: np.ndarray,
+    class_names: List[str] = [
         "airplane",
         "automobile",
         "bird",
@@ -95,8 +108,8 @@ def _plot_tsne(
         "ship",
         "truck",
     ],
-):
-    sns.scatterplot(
+) -> None:
+    ax = sns.scatterplot(
         x="x",
         y="y",
         hue="class",
@@ -109,10 +122,23 @@ def _plot_tsne(
             }
         ),
     )
+    ax.set(
+        xlabel=None,
+        ylabel=None,
+        xticklabels=[],
+        yticklabels=[],
+    )
     _plot_fig(out_dir, f"{filename}-tsne")
 
 
-def _plot_metric(out_dir, filename, data, x_name, y_name, hue_name):
+def _plot_metric(
+    out_dir: str,
+    filename: str,
+    data: List[List[Union[str, float]]],
+    x_name: str,
+    y_name: str,
+    hue_name: str,
+) -> None:
     sns.lineplot(
         x=x_name,
         y=y_name,
@@ -126,41 +152,54 @@ def _plot_metric(out_dir, filename, data, x_name, y_name, hue_name):
     _plot_fig(out_dir, f"{filename}-{y_name}")
 
 
-def _plot_n_components(out_dir, filename, model_names, n_components):
+def _plot_n_components(
+    out_dir: str, filename: str, model_names: List[str], n_components: List[int]
+) -> None:
     lp_data, knn_data = [], []
-    for n_c in tqdm.tqdm(n_components):
+    for nc in tqdm.tqdm(n_components):
         for model_name in model_names:
-            lp, knn, tsne = _get_metrics(out_dir, f"{model_name}-{n_c}.npy")
-            lp_data.extend([[str(n_c), _, model_name] for _ in lp])
-            knn_data.extend([[str(n_c), _, model_name] for _ in knn])
-            _plot_tsne(out_dir, f"{model_name}-{n_c}", tsne)
+            lp, knn, tsne = _get_metrics(out_dir, f"{model_name}-{nc}")
+            lp_data.extend([[str(nc), _, model_name] for _ in lp])
+            knn_data.extend([[str(nc), _, model_name] for _ in knn])
+            _plot_tsne(out_dir, f"{model_name}-{nc}", tsne)
     _plot_metric(out_dir, filename, lp_data, "n_components", "lp", "model")
     _plot_metric(out_dir, filename, knn_data, "n_components", "knn", "model")
 
 
-def _plot_param(out_dir, filename, param_name, params):
+def _plot_param(
+    out_dir: str, filename: str, param_name: str, params: List[float]
+) -> None:
     data = []
     for param in tqdm.tqdm(params):
-        lp, knn, tsne = _get_metrics(out_dir, f"{filename}{param}.npy")
+        lp, knn, tsne = _get_metrics(out_dir, f"{filename}{param}")
         data.extend([[str(param), _, "lp"] for _ in lp])
         data.extend([[str(param), _, "knn"] for _ in knn])
         _plot_tsne(out_dir, f"{filename}{param}", tsne)
     _plot_metric(out_dir, filename, data, param_name, "acc", "metric")
 
 
-def plot_models(out_dir, model_names, n_components, noise_stds, betas):
-    n_components and _plot_n_components(out_dir, "NC", model_names, n_components)
-    noise_stds and _plot_param(out_dir, "DAE-128-noise", "noise_std", noise_stds)
-    betas and _plot_param(out_dir, "VAE-128-beta", "beta", betas)
+def _plot_models(
+    out_dir: str,
+    model_names: List[str],
+    n_components: List[int],
+    noise_stds: List[float],
+    betas: List[float],
+) -> None:
+    n_components and _plot_n_components(out_dir, "nc", model_names, n_components)
+    noise_stds and _plot_param(out_dir, "dae-128-noise", "noise_std", noise_stds)
+    betas and _plot_param(out_dir, "vae-128-beta", "beta", betas)
+
+
+def main(
+    out_dir: str = "./out",
+    model_names: List[str] = ["rp", "pca", "ae", "dae", "vae", "simclr"],
+    n_components: List[int] = [128, 256, 512, 1024],
+    noise_stds: List[float] = [0.1, 0.25, 0.5, 0.75, 1],
+    betas: List[float] = [1e-4, 1e-3, 1e-2, 1e-1],
+) -> None:
+    _run_models(out_dir, model_names, n_components, noise_stds, betas)
+    _plot_models(out_dir, model_names, n_components, noise_stds, betas)
 
 
 if __name__ == "__main__":
-    out_dir, model_names, n_components, noise_stds, betas = (
-        "./out",
-        ["RP", "PCA", "AE", "DAE", "VAE", "SimCLR"],
-        [128, 256, 512, 1024],
-        [0, 0.1, 0.25, 0.5, 1],
-        [1e-4, 1e-3, 1e-2, 1e-1],
-    )
-    run_models(out_dir, model_names, n_components, noise_stds, betas)
-    plot_models(out_dir, model_names, n_components, noise_stds, betas)
+    main()

@@ -1,31 +1,45 @@
+import torch
 import torch.nn as nn
 
 # https://github.com/nadavbh12/VQ-VAE
 
 
 class ResBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, mid_channels=None, bn=False):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        bn: bool = False,
+    ) -> None:
         super(ResBlock, self).__init__()
-
-        if mid_channels is None:
-            mid_channels = out_channels
-
         layers = [
             nn.ReLU(),
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(
+                in_channels,
+                out_channels,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
             nn.ReLU(),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(
+                out_channels,
+                out_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+            ),
         ]
         if bn:
             layers.insert(2, nn.BatchNorm2d(out_channels))
         self.convs = nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return x + self.convs(x)
 
 
 class Encoder(nn.Sequential):
-    def __init__(self, n_components: int, hidden_dim: int):
+    def __init__(self, n_components: int, hidden_dim: int) -> None:
         assert n_components % 64 == 0
         super().__init__(
             # downsample
@@ -63,7 +77,7 @@ class Encoder(nn.Sequential):
 
 
 class Decoder(nn.Sequential):
-    def __init__(self, n_components: int, hidden_dim: int):
+    def __init__(self, n_components: int, hidden_dim: int) -> None:
         assert n_components % 64 == 0
         super().__init__(
             # [B, n_components] -> [B, hidden_dim, 8, 8]
