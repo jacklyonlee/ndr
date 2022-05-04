@@ -168,6 +168,36 @@ def train(
     noise_std: float = 0.1,
     beta: float = 1e-3,
 ) -> Tuple[float, float, np.ndarray]:
+    """Performs training and testing of specified model.
+
+    Parameters
+    ----------
+    model_name : str
+        Supports Random Projection (rp), Principle Component Analysis (pca),
+        Autoencoder (ae), Denosing Autoencoder (dae),
+        Variantional Autoencoder (vae) and Contrastive Learning (simclr).
+    n_components : int
+        Dimensionality reduction output dimension.
+    hidden_dim : int
+        Number of hidden channels for ResNet model.
+        See model.module for more details.
+    batch_size : int
+        Batch size for training and testing.
+    n_epochs : int
+        Number of epochs for training.
+    noise_std : float
+        Noise level for Denosing Autoencoder.
+        See model.ndr for more details.
+    beta : float
+        Beta value for Variantional Autoencoder.
+        See model.ndr for more details.
+
+    Returns
+    -------
+    Tuple[float, float, np.ndarray]
+        Linear probe accuracy, nearest neighbor accuracy, t-SNE embeddings.
+        See model.metric for more details.
+    """
     trainloader = _get_loader(
         batch_size,
         train=True,

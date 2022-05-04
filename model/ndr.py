@@ -1,3 +1,9 @@
+"""Neural Dimensionality Reduction models.
+
+This module implements Autoencoder (AE), Denosing Autoencoder (DAE),
+Variantional Autoencoder (VAE) and Contrastive Learning (SimCLR).
+"""
+
 from typing import Tuple
 
 import torch

@@ -1,7 +1,10 @@
+"""Residual Encoder and Decoder architectures.
+
+Implemention is based on VQ-VAE (https://github.com/nadavbh12/VQ-VAE).
+"""
+
 import torch
 import torch.nn as nn
-
-# https://github.com/nadavbh12/VQ-VAE
 
 
 class ResBlock(nn.Module):

@@ -197,6 +197,26 @@ def main(
     noise_stds: List[float] = [0.1, 0.25, 0.5, 0.75, 1],
     betas: List[float] = [1e-4, 1e-3, 1e-2, 1e-1],
 ) -> None:
+    """Script to run experiments and plot results.
+
+    Parameters
+    ----------
+    out_dir : str
+        Path to output experiment results.
+    model_name : List[str]
+        List of models to perform n_components experiments on.
+        Supports Random Projection (rp), Principle Component Analysis (pca),
+        Autoencoder (ae), Denosing Autoencoder (dae),
+        Variantional Autoencoder (vae) and Contrastive Learning (simclr).
+    n_components : List[int]
+        Dimensionality reduction output dimensions.
+    noise_stds : List[float]
+        Noise levels for Denosing Autoencoder experiments.
+        See model.ndr for more details.
+    betas : List[float]
+        Beta values for Variantional Autoencoder experiments.
+        See model.ndr for more details.
+    """
     _run_models(out_dir, model_names, n_components, noise_stds, betas)
     _plot_models(out_dir, model_names, n_components, noise_stds, betas)
 
