@@ -1,14 +1,8 @@
-"""Neural Dimensionality Reduction models.
-
-This module implements Autoencoder (AE), Denosing Autoencoder (DAE),
-Variantional Autoencoder (VAE) and Contrastive Learning (SimCLR).
-"""
-
 from typing import Tuple
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 from .module import Decoder, Encoder
 
@@ -16,15 +10,20 @@ from .module import Decoder, Encoder
 class AE(nn.Module):
     def __init__(self, n_components: int, hidden_dim: int):
         super().__init__()
-        self.enc = Encoder(n_components, hidden_dim)
-        self.dec = Decoder(n_components, hidden_dim)
+        self._enc = Encoder(n_components, hidden_dim)
+        self._dec = Decoder(n_components, hidden_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.enc(x)
+        return self._enc(x)
 
     def criterion(self, x: torch.Tensor) -> torch.Tensor:
-        recon_x = self.dec(self(x))
+        recon_x = self._dec(self(x))
         return F.mse_loss(recon_x, x)
+
+
+def _perturb(x: torch.Tensor, std: float) -> torch.Tensor:
+    x_p = x + torch.empty_like(x).normal_(0, std)
+    return F.normalize(x_p, dim=1)
 
 
 class DAE(AE):
@@ -35,16 +34,19 @@ class DAE(AE):
         noise_std: float = 0.1,
     ):
         super().__init__(n_components, hidden_dim)
-        self.noise_std = noise_std
-
-    def _perturb(self, x: torch.Tensor) -> torch.Tensor:
-        x_p = x + torch.empty_like(x).normal_(0, self.noise_std)
-        return F.normalize(x_p, dim=1)
+        self._noise_std = noise_std
 
     def criterion(self, x: torch.Tensor) -> torch.Tensor:
-        z = self(self._perturb(x))
-        recon_x = self.dec(z)
+        z = self(_perturb(x, self._noise_std))
+        recon_x = self._dec(z)
         return F.mse_loss(recon_x, x)
+
+
+def _reparameterize(z: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    mu, logvar = torch.chunk(z, 2, dim=-1)
+    std = torch.exp(0.5 * logvar)
+    eps = torch.randn_like(std)
+    return eps * std + mu, mu, logvar
 
 
 class VAE(nn.Module):
@@ -55,27 +57,19 @@ class VAE(nn.Module):
         beta: float = 1e-3,
     ):
         super().__init__()
-        self.enc = Encoder(n_components * 2, hidden_dim)
-        self.dec = Decoder(n_components, hidden_dim)
-        self.beta = beta
-
-    def _reparameterize(
-        self, z: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        mu, logvar = torch.chunk(z, 2, dim=-1)
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        return eps * std + mu, mu, logvar
+        self._enc = Encoder(n_components * 2, hidden_dim)
+        self._dec = Decoder(n_components, hidden_dim)
+        self._beta = beta
 
     def forward(self, x):
-        return self._reparameterize(self.enc(x))[0]
+        return _reparameterize(self._enc(x))[0]
 
     def criterion(self, x: torch.Tensor) -> torch.Tensor:
-        z, mu, logvar = self._reparameterize(self.enc(x))
-        recon_x = self.dec(z)
+        z, mu, logvar = _reparameterize(self._enc(x))
+        recon_x = self._dec(z)
         recon_loss = F.mse_loss(recon_x, x)
         kl_loss = ((mu**2 + logvar.exp() - 1 - logvar) / 2).mean()
-        return recon_loss + self.beta * kl_loss
+        return recon_loss + self._beta * kl_loss
 
 
 class SimCLR(nn.Module):
@@ -87,22 +81,22 @@ class SimCLR(nn.Module):
         tau: float = 0.5,
     ):
         super().__init__()
-        self.enc = Encoder(n_components, hidden_dim)
-        self.proj = nn.Sequential(
+        self._enc = Encoder(n_components, hidden_dim)
+        self._proj = nn.Sequential(
             nn.BatchNorm1d(n_components),
             nn.ReLU(inplace=True),
-            nn.Linear(n_components, proj_dim, bias=True),
+            nn.Linear(n_components, proj_dim),
         )
-        self.tau = tau
+        self._tau = tau
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.enc(x)
+        return self._enc(x)
 
     def criterion(
         self,
         x: Tuple[torch.Tensor, torch.Tensor],
     ) -> torch.Tensor:
-        z_i, z_j = (self.proj(self(_)) for _ in x)
+        z_i, z_j = (self._proj(self(_)) for _ in x)
         z = torch.cat([z_i, z_j], dim=0)
         # compute similarity matrix
         sim = (z @ z.T) / (
@@ -111,7 +105,7 @@ class SimCLR(nn.Module):
         )
         # compute denominator
         N = z.size(0)
-        exp = torch.exp(sim / self.tau)
+        exp = torch.exp(sim / self._tau)
         mask = (torch.ones_like(exp) - torch.eye(N).to(z)).bool()
         exp = exp.masked_select(mask).view(N, -1)
         denom = exp.sum(dim=1, keepdim=True)
@@ -121,5 +115,5 @@ class SimCLR(nn.Module):
             * torch.linalg.norm(z_j, dim=1, keepdim=True)
         )
         # compute numerator
-        num = torch.exp(pos / self.tau).repeat(2, 1)
+        num = torch.exp(pos / self._tau).repeat(2, 1)
         return -torch.log(num / denom).sum() / N

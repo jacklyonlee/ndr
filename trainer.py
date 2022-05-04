@@ -2,12 +2,12 @@ from typing import Tuple, Union
 
 import numpy as np
 import torch
-import torch.nn as nn
 import tqdm
 from PIL import Image
 from sklearn.base import BaseEstimator
 from sklearn.random_projection import GaussianRandomProjection
 from sklearnex.decomposition import PCA
+from torch import nn
 from torch.utils.data.dataloader import DataLoader
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
@@ -66,7 +66,7 @@ def _get_transform(is_simclr: bool) -> transforms.Compose:
 
 def _get_loader(
     batch_size: int,
-    train: bool,
+    is_train: bool,
     model_name: str = "",
 ) -> DataLoader:
     return DataLoader(
@@ -76,12 +76,12 @@ def _get_loader(
             "simclr": _SimCLRCIFAR10,
         }[model_name](
             root="./data",
-            train=train,
+            train=is_train,
             download=True,
             transform=_get_transform(model_name == "simclr"),
         ),
         batch_size=batch_size,
-        shuffle=train,
+        shuffle=is_train,
     )
 
 
@@ -171,32 +171,27 @@ def train(
         Supports Random Projection (rp), Principle Component Analysis (pca),
         Autoencoder (ae), Denosing Autoencoder (dae),
         Variantional Autoencoder (vae) and Contrastive Learning (simclr).
-        See model.ndr for details.
     n_components : int
         Dimensionality reduction output dimension.
     hidden_dim : int
-        Number of hidden channels for ResNet model.
-        See model.module for details.
+        Number of hidden channels for model.
     batch_size : int
         Batch size for training and testing.
     n_epochs : int
         Number of epochs for training.
     noise_std : float
         Noise level for Denosing Autoencoder.
-        See model.ndr for details.
     beta : float
         Beta value for Variantional Autoencoder.
-        See model.ndr for details.
 
     Returns
     -------
     Tuple[float, float, np.ndarray]
         Linear probe accuracy, nearest neighbor accuracy, t-SNE embeddings.
-        See model.metric for details.
     """
     trainloader = _get_loader(
         batch_size,
-        train=True,
+        is_train=True,
         model_name=model_name,
     )
     model = _get_model(
@@ -213,6 +208,11 @@ def train(
     )
     return _test_model(
         model,
-        _get_loader(batch_size, train=True),
-        _get_loader(batch_size, train=False),
+        _get_loader(batch_size, is_train=True),
+        _get_loader(batch_size, is_train=False),
     )
+
+
+if __name__ == "__main__":
+    lp, knn, _ = train("ae", n_components=128, n_epochs=10)
+    print(f"lp-acc: {lp} knn-acc: {knn}")

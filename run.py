@@ -34,10 +34,10 @@ def _run_trials(
 
 def _run_models(
     out_dir: str,
-    model_names: List[str],
-    n_components: List[int],
-    noise_stds: List[float],
-    betas: List[float],
+    model_names: Tuple[str],
+    n_components: Tuple[int],
+    noise_stds: Tuple[float],
+    betas: Tuple[float],
 ):
     # test different n_components
     for model_name in model_names:
@@ -97,7 +97,7 @@ def _plot_tsne(
     out_dir: str,
     filename: str,
     tsne: np.ndarray,
-    class_names: List[str] = [
+    class_names: Tuple[str] = (
         "airplane",
         "automobile",
         "bird",
@@ -108,7 +108,7 @@ def _plot_tsne(
         "horse",
         "ship",
         "truck",
-    ],
+    ),
 ):
     ax = sns.scatterplot(
         x="x",
@@ -135,7 +135,7 @@ def _plot_tsne(
 def _plot_metric(
     out_dir: str,
     filename: str,
-    data: List[List[Union[str, float]]],
+    data: List[Tuple[Union[str, float]]],
     x_name: str,
     y_name: str,
     hue_name: str,
@@ -156,15 +156,15 @@ def _plot_metric(
 def _plot_n_components(
     out_dir: str,
     filename: str,
-    model_names: List[str],
-    n_components: List[int],
+    model_names: Tuple[str],
+    n_components: Tuple[int],
 ):
     lp_data, knn_data = [], []
     for nc in tqdm.tqdm(n_components):
         for model_name in model_names:
             lp, knn, tsne = _get_metrics(out_dir, f"{model_name}-{nc}")
-            lp_data.extend([[str(nc), _, model_name] for _ in lp])
-            knn_data.extend([[str(nc), _, model_name] for _ in knn])
+            lp_data.extend([(str(nc), _, model_name) for _ in lp])
+            knn_data.extend([(str(nc), _, model_name) for _ in knn])
             _plot_tsne(out_dir, f"{model_name}-{nc}", tsne)
     _plot_metric(out_dir, filename, lp_data, "n_components", "lp", "model")
     _plot_metric(out_dir, filename, knn_data, "n_components", "knn", "model")
@@ -174,35 +174,35 @@ def _plot_param(
     out_dir: str,
     filename: str,
     param_name: str,
-    params: List[float],
+    params: Tuple[float],
 ):
     data = []
     for param in tqdm.tqdm(params):
         lp, knn, tsne = _get_metrics(out_dir, f"{filename}{param}")
-        data.extend([[str(param), _, "lp"] for _ in lp])
-        data.extend([[str(param), _, "knn"] for _ in knn])
+        data.extend([(str(param), _, "lp") for _ in lp])
+        data.extend([(str(param), _, "knn") for _ in knn])
         _plot_tsne(out_dir, f"{filename}{param}", tsne)
     _plot_metric(out_dir, filename, data, param_name, "acc", "metric")
 
 
 def _plot_models(
     out_dir: str,
-    model_names: List[str],
-    n_components: List[int],
-    noise_stds: List[float],
-    betas: List[float],
+    model_names: Tuple[str],
+    n_components: Tuple[int],
+    noise_stds: Tuple[float],
+    betas: Tuple[float],
 ):
-    n_components and _plot_n_components(out_dir, "nc", model_names, n_components)
-    noise_stds and _plot_param(out_dir, "dae-128-noise", "noise_std", noise_stds)
-    betas and _plot_param(out_dir, "vae-128-beta", "beta", betas)
+    _plot_n_components(out_dir, "nc", model_names, n_components)
+    _plot_param(out_dir, "dae-128-noise", "noise_std", noise_stds)
+    _plot_param(out_dir, "vae-128-beta", "beta", betas)
 
 
 def main(
     out_dir: str = "./out",
-    model_names: List[str] = ["rp", "pca", "ae", "dae", "vae", "simclr"],
-    n_components: List[int] = [128, 256, 512, 1024],
-    noise_stds: List[float] = [0.1, 0.25, 0.5, 0.75, 1],
-    betas: List[float] = [1e-4, 1e-3, 1e-2, 1e-1],
+    model_names: Tuple[str] = ("rp", "pca", "ae", "dae", "vae", "simclr"),
+    n_components: Tuple[int] = (128, 256, 512, 1024),
+    noise_stds: Tuple[float] = (0.1, 0.25, 0.5, 0.75, 1),
+    betas: Tuple[float] = (1e-4, 1e-3, 1e-2, 1e-1),
 ):
     """Script to run experiments and plot results.
 
@@ -210,20 +210,17 @@ def main(
     ----------
     out_dir : str
         Path to output experiment results.
-    model_name : List[str]
-        List of models to perform n_components experiments on.
+    model_name : Tuple[str]
+        Models to perform n_components experiments on.
         Supports Random Projection (rp), Principle Component Analysis (pca),
         Autoencoder (ae), Denosing Autoencoder (dae),
         Variantional Autoencoder (vae) and Contrastive Learning (simclr).
-        See model.ndr for details.
-    n_components : List[int]
+    n_components : Tuple[int]
         Dimensionality reduction output dimensions.
-    noise_stds : List[float]
+    noise_stds : Tuple[float]
         Noise levels for Denosing Autoencoder experiments.
-        See model.ndr for details.
-    betas : List[float]
+    betas : Tuple[float]
         Beta values for Variantional Autoencoder experiments.
-        See model.ndr for details.
     """
     _run_models(out_dir, model_names, n_components, noise_stds, betas)
     _plot_models(out_dir, model_names, n_components, noise_stds, betas)
