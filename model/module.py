@@ -13,7 +13,7 @@ class ResBlock(nn.Module):
         in_channels: int,
         out_channels: int,
         bn: bool = False,
-    ) -> None:
+    ):
         super(ResBlock, self).__init__()
         layers = [
             nn.ReLU(),
@@ -42,7 +42,7 @@ class ResBlock(nn.Module):
 
 
 class Encoder(nn.Sequential):
-    def __init__(self, n_components: int, hidden_dim: int) -> None:
+    def __init__(self, n_components: int, hidden_dim: int):
         assert n_components % 64 == 0
         super().__init__(
             # downsample
@@ -80,7 +80,7 @@ class Encoder(nn.Sequential):
 
 
 class Decoder(nn.Sequential):
-    def __init__(self, n_components: int, hidden_dim: int) -> None:
+    def __init__(self, n_components: int, hidden_dim: int):
         assert n_components % 64 == 0
         super().__init__(
             # [B, n_components] -> [B, hidden_dim, 8, 8]

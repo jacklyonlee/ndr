@@ -14,7 +14,7 @@ from .module import Decoder, Encoder
 
 
 class AE(nn.Module):
-    def __init__(self, n_components: int, hidden_dim: int) -> None:
+    def __init__(self, n_components: int, hidden_dim: int):
         super().__init__()
         self.enc = Encoder(n_components, hidden_dim)
         self.dec = Decoder(n_components, hidden_dim)
@@ -33,7 +33,7 @@ class DAE(AE):
         n_components: int,
         hidden_dim: int,
         noise_std: float = 0.1,
-    ) -> None:
+    ):
         super().__init__(n_components, hidden_dim)
         self.noise_std = noise_std
 
@@ -53,7 +53,7 @@ class VAE(nn.Module):
         n_components: int,
         hidden_dim: int,
         beta: float = 1e-3,
-    ) -> None:
+    ):
         super().__init__()
         self.enc = Encoder(n_components * 2, hidden_dim)
         self.dec = Decoder(n_components, hidden_dim)
@@ -85,7 +85,7 @@ class SimCLR(nn.Module):
         hidden_dim: int,
         proj_dim: int = 128,
         tau: float = 0.5,
-    ) -> None:
+    ):
         super().__init__()
         self.enc = Encoder(n_components, hidden_dim)
         self.proj = nn.Sequential(

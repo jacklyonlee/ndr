@@ -1,5 +1,6 @@
 import os
 import pickle
+from collections import defaultdict
 from typing import List, Tuple, Union
 
 import matplotlib.pyplot as plt
@@ -19,14 +20,14 @@ def _run_trials(
     filename: str,
     n_trials: int = 5,
     **kwargs,
-) -> None:
-    results = {"lp": [], "knn": [], "tsne": []}
+):
+    results = defaultdict(list)
     for _ in range(n_trials):
         lp, knn, tsne = trainer.train(**kwargs)
-        print(filename, "lp-acc", lp, "knn-acc", knn)
         results["lp"].append(lp)
         results["knn"].append(knn)
         results["tsne"].append(tsne)
+        print(f"experiment: {filename} lp-acc: {lp} knn-acc: {knn}")
     with open(os.path.join(out_dir, f"{filename}.pkl"), "wb+") as f:
         pickle.dump(results, f)
 
@@ -37,7 +38,7 @@ def _run_models(
     n_components: List[int],
     noise_stds: List[float],
     betas: List[float],
-) -> None:
+):
     # test different n_components
     for model_name in model_names:
         for nc in n_components:
@@ -78,7 +79,7 @@ def _get_metrics(
         return lp, knn, tsne
 
 
-def _plot_fig(out_dir: str, filename: str) -> None:
+def _plot_fig(out_dir: str, filename: str):
     plt.legend(
         bbox_to_anchor=(1.02, 1),
         loc=2,
@@ -108,7 +109,7 @@ def _plot_tsne(
         "ship",
         "truck",
     ],
-) -> None:
+):
     ax = sns.scatterplot(
         x="x",
         y="y",
@@ -138,7 +139,7 @@ def _plot_metric(
     x_name: str,
     y_name: str,
     hue_name: str,
-) -> None:
+):
     sns.lineplot(
         x=x_name,
         y=y_name,
@@ -153,8 +154,11 @@ def _plot_metric(
 
 
 def _plot_n_components(
-    out_dir: str, filename: str, model_names: List[str], n_components: List[int]
-) -> None:
+    out_dir: str,
+    filename: str,
+    model_names: List[str],
+    n_components: List[int],
+):
     lp_data, knn_data = [], []
     for nc in tqdm.tqdm(n_components):
         for model_name in model_names:
@@ -167,8 +171,11 @@ def _plot_n_components(
 
 
 def _plot_param(
-    out_dir: str, filename: str, param_name: str, params: List[float]
-) -> None:
+    out_dir: str,
+    filename: str,
+    param_name: str,
+    params: List[float],
+):
     data = []
     for param in tqdm.tqdm(params):
         lp, knn, tsne = _get_metrics(out_dir, f"{filename}{param}")
@@ -184,7 +191,7 @@ def _plot_models(
     n_components: List[int],
     noise_stds: List[float],
     betas: List[float],
-) -> None:
+):
     n_components and _plot_n_components(out_dir, "nc", model_names, n_components)
     noise_stds and _plot_param(out_dir, "dae-128-noise", "noise_std", noise_stds)
     betas and _plot_param(out_dir, "vae-128-beta", "beta", betas)
@@ -196,7 +203,7 @@ def main(
     n_components: List[int] = [128, 256, 512, 1024],
     noise_stds: List[float] = [0.1, 0.25, 0.5, 0.75, 1],
     betas: List[float] = [1e-4, 1e-3, 1e-2, 1e-1],
-) -> None:
+):
     """Script to run experiments and plot results.
 
     Parameters
@@ -208,14 +215,15 @@ def main(
         Supports Random Projection (rp), Principle Component Analysis (pca),
         Autoencoder (ae), Denosing Autoencoder (dae),
         Variantional Autoencoder (vae) and Contrastive Learning (simclr).
+        See model.ndr for details.
     n_components : List[int]
         Dimensionality reduction output dimensions.
     noise_stds : List[float]
         Noise levels for Denosing Autoencoder experiments.
-        See model.ndr for more details.
+        See model.ndr for details.
     betas : List[float]
         Beta values for Variantional Autoencoder experiments.
-        See model.ndr for more details.
+        See model.ndr for details.
     """
     _run_models(out_dir, model_names, n_components, noise_stds, betas)
     _plot_models(out_dir, model_names, n_components, noise_stds, betas)

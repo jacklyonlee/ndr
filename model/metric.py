@@ -1,7 +1,7 @@
 import numpy as np
-import sklearnex.linear_model as linear_model
-import sklearnex.manifold as manifold
-import sklearnex.neighbors as neighbors
+from sklearnex.linear_model import LogisticRegression
+from sklearnex.manifold import TSNE
+from sklearnex.neighbors import KNeighborsClassifier
 
 
 def compute_lp(
@@ -28,7 +28,7 @@ def compute_lp(
     float
         Linear probe accuracy.
     """
-    lp = linear_model.LogisticRegression(
+    lp = LogisticRegression(
         random_state=0,
         max_iter=5000,
     ).fit(z_tr, y_tr)
@@ -59,7 +59,7 @@ def compute_knn(
     float
         Nearest neighbor accuracy.
     """
-    knn = neighbors.KNeighborsClassifier(
+    knn = KNeighborsClassifier(
         n_neighbors=1,
         algorithm="ball_tree",
     ).fit(z_tr, y_tr)
@@ -81,9 +81,12 @@ def compute_tsne(z: np.ndarray, y: np.ndarray) -> np.ndarray:
     np.ndarray
         t-SNE embeddings concatenated with class labels with shape (N, 3).
     """
-    emb = manifold.TSNE(
+    emb = TSNE(
         n_components=2,
         learning_rate="auto",
         init="pca",
     ).fit_transform(z)
-    return np.concatenate((emb, y[:, np.newaxis]), axis=1)
+    return np.concatenate(
+        (emb, y[:, np.newaxis]),
+        axis=1,
+    )
