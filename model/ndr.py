@@ -1,3 +1,5 @@
+"""This module contains implementations of AE, DAE, VAE and SimCLR."""
+
 from typing import Tuple
 
 import torch
@@ -31,18 +33,20 @@ class DAE(AE):
         self,
         n_components: int,
         hidden_dim: int,
-        noise_std: float = 0.1,
+        sigma: float = 0.1,
     ):
         super().__init__(n_components, hidden_dim)
-        self._noise_std = noise_std
+        self._sigma = sigma
 
     def criterion(self, x: torch.Tensor) -> torch.Tensor:
-        z = self(_perturb(x, self._noise_std))
+        z = self(_perturb(x, self._sigma))
         recon_x = self._dec(z)
         return F.mse_loss(recon_x, x)
 
 
-def _reparameterize(z: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def _reparameterize(
+    z: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     mu, logvar = torch.chunk(z, 2, dim=-1)
     std = torch.exp(0.5 * logvar)
     eps = torch.randn_like(std)

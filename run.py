@@ -1,7 +1,9 @@
+"""This module contains functions to run experiments and plot results."""
+
 import os
 import pickle
 from collections import defaultdict
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,10 +38,9 @@ def _run_models(
     out_dir: str,
     model_names: Tuple[str],
     n_components: Tuple[int],
-    noise_stds: Tuple[float],
+    sigmas: Tuple[float],
     betas: Tuple[float],
 ):
-    # test different n_components
     for model_name in model_names:
         for nc in n_components:
             _run_trials(
@@ -48,22 +49,20 @@ def _run_models(
                 model_name=model_name,
                 n_components=nc,
             )
-    # test different noise levels
-    for noise_std in noise_stds:
+    for sigma in sigmas:
         _run_trials(
             out_dir,
-            f"dae-128-noise{noise_std}",
+            f"dae-128-sigma{sigma}",
             model_name="dae",
-            n_components=512,
-            noise_std=noise_std,
+            n_components=128,
+            sigma=sigma,
         )
-    # test different betas
     for beta in betas:
         _run_trials(
             out_dir,
             f"vae-128-beta{beta}",
             model_name="vae",
-            n_components=512,
+            n_components=128,
             beta=beta,
         )
 
@@ -79,13 +78,18 @@ def _get_metrics(
         return lp, knn, tsne
 
 
-def _plot_fig(out_dir: str, filename: str):
-    plt.legend(
-        bbox_to_anchor=(1.02, 1),
-        loc=2,
-        borderaxespad=0,
-        frameon=False,
-    )
+def _plot_fig(
+    out_dir: str,
+    filename: str,
+    show_legend: bool = True,
+):
+    if show_legend:
+        plt.legend(
+            bbox_to_anchor=(1.02, 1),
+            loc=2,
+            borderaxespad=0,
+            frameon=False,
+        )
     plt.savefig(
         os.path.join(out_dir, f"{filename}.png"),
         bbox_inches="tight",
@@ -138,7 +142,7 @@ def _plot_metric(
     data: List[Tuple[Union[str, float]]],
     x_name: str,
     y_name: str,
-    hue_name: str,
+    hue_name: Optional[str] = None,
 ):
     sns.lineplot(
         x=x_name,
@@ -147,10 +151,10 @@ def _plot_metric(
         ci=95,
         data=pd.DataFrame(
             data,
-            columns=[x_name, y_name, hue_name],
+            columns=((x_name, y_name, hue_name) if hue_name else (x_name, y_name)),
         ),
     )
-    _plot_fig(out_dir, f"{filename}-{y_name}")
+    _plot_fig(out_dir, f"{filename}-{y_name}", show_legend=bool(hue_name))
 
 
 def _plot_n_components(
@@ -176,24 +180,25 @@ def _plot_param(
     param_name: str,
     params: Tuple[float],
 ):
-    data = []
+    lp_data, knn_data = [], []
     for param in tqdm.tqdm(params):
         lp, knn, tsne = _get_metrics(out_dir, f"{filename}{param}")
-        data.extend([(str(param), _, "lp") for _ in lp])
-        data.extend([(str(param), _, "knn") for _ in knn])
+        lp_data.extend([(str(param), _) for _ in lp])
+        knn_data.extend([(str(param), _) for _ in knn])
         _plot_tsne(out_dir, f"{filename}{param}", tsne)
-    _plot_metric(out_dir, filename, data, param_name, "acc", "metric")
+    _plot_metric(out_dir, filename, lp_data, param_name, "lp")
+    _plot_metric(out_dir, filename, knn_data, param_name, "knn")
 
 
 def _plot_models(
     out_dir: str,
     model_names: Tuple[str],
     n_components: Tuple[int],
-    noise_stds: Tuple[float],
+    sigmas: Tuple[float],
     betas: Tuple[float],
 ):
     _plot_n_components(out_dir, "nc", model_names, n_components)
-    _plot_param(out_dir, "dae-128-noise", "noise_std", noise_stds)
+    _plot_param(out_dir, "dae-128-sigma", "sigma", sigmas)
     _plot_param(out_dir, "vae-128-beta", "beta", betas)
 
 
@@ -201,29 +206,28 @@ def main(
     out_dir: str = "./out",
     model_names: Tuple[str] = ("rp", "pca", "ae", "dae", "vae", "simclr"),
     n_components: Tuple[int] = (128, 256, 512, 1024),
-    noise_stds: Tuple[float] = (0.1, 0.25, 0.5, 0.75, 1),
+    sigmas: Tuple[float] = (0.1, 0.5, 0.75, 1, 1.5),
     betas: Tuple[float] = (1e-4, 1e-3, 1e-2, 1e-1),
 ):
-    """Script to run experiments and plot results.
+    """Runs experiments and plot results.
 
-    Parameters
-    ----------
-    out_dir : str
-        Path to output experiment results.
-    model_name : Tuple[str]
-        Models to perform n_components experiments on.
-        Supports Random Projection (rp), Principle Component Analysis (pca),
-        Autoencoder (ae), Denosing Autoencoder (dae),
-        Variantional Autoencoder (vae) and Contrastive Learning (simclr).
-    n_components : Tuple[int]
-        Dimensionality reduction output dimensions.
-    noise_stds : Tuple[float]
-        Noise levels for Denosing Autoencoder experiments.
-    betas : Tuple[float]
-        Beta values for Variantional Autoencoder experiments.
+    Args:
+        out_dir:
+            Path to output experiment results.
+        model_names:
+            Models to perform experiments on. Supports Random Projection (rp),
+            Principle Component Analysis (pca), Autoencoder (ae),
+            Denosing Autoencoder (dae), Variantional Autoencoder (vae) and
+            Contrastive Learning (simclr).
+        n_components:
+            Dimensionality reduction feature dimensions.
+        sigmas:
+            Noise standard deviations for Denosing Autoencoder experiments.
+        betas:
+            Beta values for Variantional Autoencoder experiments.
     """
-    _run_models(out_dir, model_names, n_components, noise_stds, betas)
-    _plot_models(out_dir, model_names, n_components, noise_stds, betas)
+    _run_models(out_dir, model_names, n_components, sigmas, betas)
+    _plot_models(out_dir, model_names, n_components, sigmas, betas)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+"""This module contains functions to train and test models using CIFAR10."""
+
 from typing import Tuple, Union
 
 import numpy as np
@@ -89,14 +91,14 @@ def _get_model(
     model_name: str,
     n_components: int,
     hidden_dim: int,
-    noise_std: float,
+    sigma: float,
     beta: float,
 ) -> Union[BaseEstimator, nn.Module]:
     return {
         "rp": lambda: GaussianRandomProjection(n_components),
         "pca": lambda: PCA(n_components),
         "ae": lambda: AE(n_components, hidden_dim),
-        "dae": lambda: DAE(n_components, hidden_dim, noise_std),
+        "dae": lambda: DAE(n_components, hidden_dim, sigma),
         "vae": lambda: VAE(n_components, hidden_dim, beta),
         "simclr": lambda: SimCLR(n_components, hidden_dim),
     }[model_name]()
@@ -120,7 +122,7 @@ def _train_model(
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
-                t.set_description(f"Epoch:{_+1}|Loss:{loss.item():.2f}")
+                t.set_description(f"E:{_+1}/{n_epochs+1}|L:{loss.item():.2f}")
     return model.eval()
 
 
@@ -128,16 +130,16 @@ def _train_model(
 def _get_features(
     model: Union[BaseEstimator, nn.Module], loader: DataLoader
 ) -> Tuple[np.ndarray, np.ndarray]:
-    z_, y_ = [], []
+    z_list, y_list = [], []
     for x, y in tqdm.tqdm(loader):
         if isinstance(model, nn.Module):
             z = model(x.cuda()).cpu().numpy()
         else:
             x = torch.flatten(x, start_dim=1).numpy()
             z = model.transform(x)
-        z_.append(z)
-        y_.append(y)
-    return np.concatenate(z_), np.concatenate(y_)
+        z_list.append(z)
+        y_list.append(y)
+    return np.concatenate(z_list), np.concatenate(y_list)
 
 
 def _test_model(
@@ -156,38 +158,36 @@ def _test_model(
 
 def train(
     model_name: str,
-    n_components: int = 512,
+    n_components: int = 128,
     hidden_dim: int = 128,
     batch_size: int = 512,
     n_epochs: int = 20,
-    noise_std: float = 0.1,
+    sigma: float = 0.1,
     beta: float = 1e-3,
 ) -> Tuple[float, float, np.ndarray]:
     """Performs training and testing of specified model.
 
-    Parameters
-    ----------
-    model_name : str
-        Supports Random Projection (rp), Principle Component Analysis (pca),
-        Autoencoder (ae), Denosing Autoencoder (dae),
-        Variantional Autoencoder (vae) and Contrastive Learning (simclr).
-    n_components : int
-        Dimensionality reduction output dimension.
-    hidden_dim : int
-        Number of hidden channels for model.
-    batch_size : int
-        Batch size for training and testing.
-    n_epochs : int
-        Number of epochs for training.
-    noise_std : float
-        Noise level for Denosing Autoencoder.
-    beta : float
-        Beta value for Variantional Autoencoder.
+    Args:
+        model_name:
+            Model to be trained. Supports Random Projection (rp),
+            Principle Component Analysis (pca), Autoencoder (ae),
+            Denosing Autoencoder (dae), Variantional Autoencoder (vae) and
+            Contrastive Learning (simclr).
+        n_components:
+            Dimensionality reduction feature dimension.
+        hidden_dim:
+            Number of hidden channels for model.
+        batch_size:
+            Batch size for training and testing.
+        n_epochs:
+            Number of epochs for training.
+        sigma:
+            Noise standard deviation for Denosing Autoencoder.
+        beta:
+            Beta value for Variantional Autoencoder.
 
-    Returns
-    -------
-    Tuple[float, float, np.ndarray]
-        Linear probe accuracy, nearest neighbor accuracy, t-SNE embeddings.
+    Returns:
+        Linear Probe accuracy, Nearest Neighbor accuracy, t-SNE embeddings.
     """
     trainloader = _get_loader(
         batch_size,
@@ -198,7 +198,7 @@ def train(
         model_name,
         n_components,
         hidden_dim,
-        noise_std=noise_std,
+        sigma=sigma,
         beta=beta,
     )
     model = (

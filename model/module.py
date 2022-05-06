@@ -1,3 +1,5 @@
+"""This modules contains implementations of Residual Encoder and Decoder."""
+
 import torch
 from torch import nn
 
@@ -82,7 +84,6 @@ class Encoder(nn.Sequential):
             nn.BatchNorm2d(hidden_dim),
             nn.ReLU(inplace=True),
             Bottleneck(hidden_dim),
-            # (B, hidden_dim, 8, 8) -> (B, n_components)
             nn.Flatten(),
             MLP(hidden_dim * 64, n_components),
         )
@@ -92,7 +93,6 @@ class Decoder(nn.Sequential):
     def __init__(self, n_components: int, hidden_dim: int):
         assert n_components % 64 == 0
         super().__init__(
-            # (B, n_components) -> (B, hidden_dim, 8, 8)
             MLP(n_components, hidden_dim * 64),
             nn.Unflatten(1, (hidden_dim, 8, 8)),
             Bottleneck(hidden_dim),
