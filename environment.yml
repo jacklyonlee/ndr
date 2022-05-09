@@ -1,13 +1,13 @@
 name: ndr
 channels:
-  - conda-forge
-  - pytorch
+- conda-forge
+- pytorch
 dependencies:
-  - python=3.8
-  - pre_commit=2.18.1
-  - tqdm=4.64.0
-  - seaborn=0.11.2
-  - cudatoolkit=11.3
-  - pytorch::pytorch=1.11.0
-  - torchvision=0.12.0
-  - scikit-learn-intelex=2021.5.0
+- python=3.8
+- pre_commit=2.18.1
+- tqdm=4.64.0
+- seaborn=0.11.2
+- cudatoolkit=11.3
+- pytorch::pytorch=1.11.0
+- torchvision=0.12.0
+- scikit-learn-intelex=2021.5.0
