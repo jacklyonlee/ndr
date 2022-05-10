@@ -3,10 +3,10 @@
 from typing import Tuple
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-from torch import nn
 
-from .module import Decoder, Encoder
+from .modules import Decoder, Encoder
 
 
 class AE(nn.Module):
@@ -101,17 +101,16 @@ class SimCLR(nn.Module):
         x: Tuple[torch.Tensor, torch.Tensor],
     ) -> torch.Tensor:
         z_i, z_j = (self._proj(self(_)) for _ in x)
-        z = torch.cat([z_i, z_j], dim=0)
+        z = torch.cat((z_i, z_j), dim=0)
         # compute similarity matrix
         sim = (z @ z.T) / (
             torch.linalg.norm(z, dim=1, keepdim=True)
             @ torch.linalg.norm(z.T, dim=0, keepdim=True)
         )
         # compute denominator
-        N = z.size(0)
         exp = torch.exp(sim / self._tau)
-        mask = (torch.ones_like(exp) - torch.eye(N).to(z)).bool()
-        exp = exp.masked_select(mask).view(N, -1)
+        mask = torch.ones_like(exp) - torch.eye(z.size(0)).to(z)
+        exp = exp.masked_select(mask.bool()).view(z.size(0), -1)
         denom = exp.sum(dim=1, keepdim=True)
         # compute positive pairs
         pos = (z_i * z_j).sum(dim=1, keepdim=True) / (
@@ -120,4 +119,4 @@ class SimCLR(nn.Module):
         )
         # compute numerator
         num = torch.exp(pos / self._tau).repeat(2, 1)
-        return -torch.log(num / denom).sum() / N
+        return -torch.log(num / denom).sum() / z.size(0)

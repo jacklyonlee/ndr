@@ -27,8 +27,8 @@ def compute_lp(
     Returns:
         Linear Probe accuracy.
     """
-    lp = LogisticRegression(random_state=0, max_iter=5000).fit(z_tr, y_tr)
-    return float(lp.score(z_te, y_te))
+    lp = LogisticRegression(random_state=0, max_iter=5000)
+    return float(lp.fit(z_tr, y_tr).score(z_te, y_te))
 
 
 def compute_knn(
@@ -52,8 +52,8 @@ def compute_knn(
     Returns:
         Nearest Neighbor classification accuracy.
     """
-    knn = KNeighborsClassifier(n_neighbors=1, algorithm="ball_tree").fit(z_tr, y_tr)
-    return float(knn.score(z_te, y_te))
+    knn = KNeighborsClassifier(n_neighbors=1, algorithm="ball_tree")
+    return float(knn.fit(z_tr, y_tr).score(z_te, y_te))
 
 
 def compute_tsne(z: np.ndarray, y: np.ndarray) -> np.ndarray:
@@ -68,5 +68,5 @@ def compute_tsne(z: np.ndarray, y: np.ndarray) -> np.ndarray:
     Returns:
         t-SNE embeddings concatenated with class labels with shape (N, 3).
     """
-    emb = TSNE(n_components=2, learning_rate="auto", init="pca").fit_transform(z)
-    return np.concatenate((emb, y[:, np.newaxis]), axis=1)
+    tsne = TSNE(n_components=2, learning_rate="auto", init="pca")
+    return np.concatenate((tsne.fit_transform(z), y[:, np.newaxis]), axis=1)

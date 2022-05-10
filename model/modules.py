@@ -1,7 +1,7 @@
 """This modules contains implementations of Residual Encoder and Decoder."""
 
 import torch
-from torch import nn
+import torch.nn as nn
 
 
 class ResBlock(nn.Module):
