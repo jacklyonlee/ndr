@@ -1,7 +1,5 @@
 """This module contains implementations of AE, DAE, VAE and SimCLR."""
 
-from typing import Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -46,7 +44,7 @@ class DAE(AE):
 
 def _reparameterize(
     z: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     mu, logvar = torch.chunk(z, 2, dim=-1)
     std = torch.exp(0.5 * logvar)
     eps = torch.randn_like(std)
@@ -98,7 +96,7 @@ class SimCLR(nn.Module):
 
     def criterion(
         self,
-        x: Tuple[torch.Tensor, torch.Tensor],
+        x: tuple[torch.Tensor, torch.Tensor],
     ) -> torch.Tensor:
         z_i, z_j = (self._proj(self(_)) for _ in x)
         z = torch.cat((z_i, z_j), dim=0)

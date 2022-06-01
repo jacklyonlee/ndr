@@ -14,17 +14,20 @@ def compute_lp(
 ) -> float:
     """Computes Linear Probe accuracy.
 
-    Args:
-        z_tr:
-            Dimension reduced training data with shape (N, n_components).
-        y_tr:
-            Labels of training data with shape (N,).
-        z_te:
-            Dimension reduced test data with shape (N, n_components).
-        y_te:
-            Labels of test data with shape (N,).
+    Parameters
+    ----------
+    z_tr
+        Dimension reduced training data with shape (N, n_components).
+    y_tr
+        Labels of training data with shape (N,).
+    z_te
+        Dimension reduced test data with shape (N, n_components).
+    y_te
+        Labels of test data with shape (N,).
 
-    Returns:
+    Returns
+    -------
+    float
         Linear Probe accuracy.
     """
     lp = LogisticRegression(random_state=0, max_iter=5000)
@@ -39,17 +42,20 @@ def compute_knn(
 ) -> float:
     """Computes Nearest Neighbor classification accuracy.
 
-    Args:
-        z_tr:
-            Dimension reduced training data with shape (N, n_components).
-        y_tr:
-            Labels of training data with shape (N,).
-        z_te:
-            Dimension reduced test data with shape (N, n_components).
-        y_te:
-            Labels of test data with shape (N,).
+    Parameters
+    ----------
+    z_tr
+        Dimension reduced training data with shape (N, n_components).
+    y_tr
+        Labels of training data with shape (N,).
+    z_te
+        Dimension reduced test data with shape (N, n_components).
+    y_te
+        Labels of test data with shape (N,).
 
-    Returns:
+    Returns
+    -------
+    float
         Nearest Neighbor classification accuracy.
     """
     knn = KNeighborsClassifier(n_neighbors=1, algorithm="ball_tree")
@@ -59,13 +65,16 @@ def compute_knn(
 def compute_tsne(z: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Computes t-distributed Stochastic Neighbor Embeddings (t-SNE).
 
-    Args:
-        z:
-            Dimension reduced test data with shape (N, n_components).
-        y:
-            Labels of test data with shape (N,).
+    Parameters
+    ----------
+    z
+        Dimension reduced test data with shape (N, n_components).
+    y
+        Labels of test data with shape (N,).
 
-    Returns:
+    Returns
+    -------
+    np.ndarray
         t-SNE embeddings concatenated with class labels with shape (N, 3).
     """
     tsne = TSNE(n_components=2, learning_rate="auto", init="pca")

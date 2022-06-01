@@ -1,9 +1,10 @@
 """This module contains functions to train and test models using CIFAR10."""
 
-from typing import Tuple, Union
+from typing import Union
 
 import numpy as np
 import torch
+import torch.nn as nn
 from PIL import Image
 from sklearn.base import BaseEstimator
 from sklearn.random_projection import GaussianRandomProjection
@@ -25,7 +26,7 @@ class _AECIFAR10(CIFAR10):
 
 
 class _SimCLRCIFAR10(CIFAR10):
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         img = self.data[index]
         img = Image.fromarray(img)
         x_i = self.transform(img)
@@ -92,7 +93,7 @@ def _get_model(
     hidden_dim: int,
     sigma: float,
     beta: float,
-) -> Union[BaseEstimator, torch.nn.Module]:
+) -> Union[BaseEstimator, nn.Module]:
     return {
         "rp": lambda: GaussianRandomProjection(n_components),
         "pca": lambda: PCA(n_components),
@@ -104,10 +105,10 @@ def _get_model(
 
 
 def _train_model(
-    net: torch.nn.Module,
+    net: nn.Module,
     trainloader: DataLoader,
     n_epochs: int,
-) -> torch.nn.Module:
+):
     net.cuda().train()
     opt = torch.optim.AdamW(net.parameters())
     for _ in range(n_epochs):
@@ -126,13 +127,14 @@ def _train_model(
 
 @torch.no_grad()
 def _get_features(
-    net: Union[BaseEstimator, torch.nn.Module],
+    net: Union[BaseEstimator, nn.Module],
     loader: DataLoader,
-) -> Tuple[np.ndarray, np.ndarray]:
-    net.cuda().eval()
+) -> tuple[np.ndarray, np.ndarray]:
+    if isinstance(net, nn.Module):
+        net.cuda().eval()
     z_list, y_list = [], []
     for x, y in tqdm(loader):
-        if isinstance(net, torch.nn.Module):
+        if isinstance(net, nn.Module):
             z = net(x.cuda()).cpu().numpy()
         else:
             x = torch.flatten(x, start_dim=1).numpy()
@@ -143,10 +145,10 @@ def _get_features(
 
 
 def _test_model(
-    net: Union[BaseEstimator, torch.nn.Module],
+    net: Union[BaseEstimator, nn.Module],
     trainloader: DataLoader,
     testloader: DataLoader,
-) -> Tuple[float, float, np.ndarray]:
+) -> tuple[float, float, np.ndarray]:
     z_tr, y_tr = _get_features(net, trainloader)
     z_te, y_te = _get_features(net, testloader)
     return (
@@ -164,29 +166,32 @@ def train(
     n_epochs: int = 20,
     sigma: float = 0.1,
     beta: float = 1e-3,
-) -> Tuple[float, float, np.ndarray]:
+) -> tuple[float, float, np.ndarray]:
     """Performs training and testing of specified model.
 
-    Args:
-        model:
-            Model to be trained. Supports Random Projection (rp),
-            Principle Component Analysis (pca), Autoencoder (ae),
-            Denosing Autoencoder (dae), Variantional Autoencoder (vae) and
-            Contrastive Learning (simclr).
-        n_components:
-            Dimensionality reduction feature dimension.
-        hidden_dim:
-            Number of hidden channels for model.
-        batch_size:
-            Batch size for training and testing.
-        n_epochs:
-            Number of epochs for training.
-        sigma:
-            Noise standard deviation for Denosing Autoencoder.
-        beta:
-            Beta value for Variantional Autoencoder.
+    Parameters
+    ----------
+    model
+        Model to be trained. Supports Random Projection (rp),
+        Principle Component Analysis (pca), Autoencoder (ae),
+        Denosing Autoencoder (dae), Variantional Autoencoder (vae) and
+        Contrastive Learning (simclr).
+    n_components
+        Dimensionality reduction feature dimension.
+    hidden_dim
+        Number of hidden channels for model.
+    batch_size
+        Batch size for training and testing.
+    n_epochs
+        Number of epochs for training.
+    sigma
+        Noise standard deviation for Denosing Autoencoder.
+    beta
+        Beta value for Variantional Autoencoder.
 
-    Returns:
+    Returns
+    -------
+    tuple[float, float, np.ndarray]
         Linear Probe accuracy, Nearest Neighbor accuracy, t-SNE embeddings.
     """
     trainloader = _get_loader(
@@ -203,7 +208,7 @@ def train(
     )
     (
         _train_model(net, trainloader, n_epochs)
-        if isinstance(net, torch.nn.Module)
+        if isinstance(net, nn.Module)
         else net.fit(trainloader.dataset.data.reshape(-1, 3072))
     )
     return _test_model(

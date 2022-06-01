@@ -3,7 +3,7 @@
 import os
 import pickle
 from collections import defaultdict
-from typing import List, Optional, Tuple, Union
+from typing import Iterable, Optional, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,10 +36,10 @@ def _run_trials(
 
 def _run_models(
     out_dir: str,
-    models: Tuple[str],
-    n_components: Tuple[int],
-    sigmas: Tuple[float],
-    betas: Tuple[float],
+    models: Iterable[str],
+    n_components: Iterable[int],
+    sigmas: Iterable[float],
+    betas: Iterable[float],
 ):
     for model in models:
         for nc in n_components:
@@ -69,7 +69,7 @@ def _run_models(
 
 def _get_metrics(
     out_dir: str, filename: str
-) -> Tuple[List[float], List[float], np.ndarray]:
+) -> tuple[list[float], list[float], np.ndarray]:
     with open(os.path.join(out_dir, f"{filename}.pkl"), "rb") as f:
         data = pickle.load(f)
         lp = data.get("lp")
@@ -101,7 +101,7 @@ def _plot_tsne(
     out_dir: str,
     filename: str,
     tsne: np.ndarray,
-    classes: Tuple[str] = (
+    classes: Sequence[str] = (
         "airplane",
         "automobile",
         "bird",
@@ -138,7 +138,7 @@ def _plot_tsne(
 def _plot_metric(
     out_dir: str,
     filename: str,
-    data: List[Tuple[Union[str, float]]],
+    data: list,
     x: str,
     y: str,
     hue: Optional[str] = None,
@@ -159,8 +159,8 @@ def _plot_metric(
 def _plot_n_components(
     out_dir: str,
     filename: str,
-    models: Tuple[str],
-    n_components: Tuple[int],
+    models: Iterable[str],
+    n_components: Iterable[int],
 ):
     lp_data, knn_data = [], []
     for nc in tqdm(n_components):
@@ -177,7 +177,7 @@ def _plot_param(
     out_dir: str,
     filename: str,
     param_name: str,
-    params: Tuple[float],
+    params: Iterable[float],
 ):
     lp_data, knn_data = [], []
     for param in tqdm(params):
@@ -191,10 +191,10 @@ def _plot_param(
 
 def _plot_models(
     out_dir: str,
-    models: Tuple[str],
-    n_components: Tuple[int],
-    sigmas: Tuple[float],
-    betas: Tuple[float],
+    models: Iterable[str],
+    n_components: Iterable[int],
+    sigmas: Iterable[float],
+    betas: Iterable[float],
 ):
     _plot_n_components(out_dir, "nc", models, n_components)
     _plot_param(out_dir, "dae-128-sigma", "sigma", sigmas)
@@ -203,27 +203,28 @@ def _plot_models(
 
 def main(
     out_dir: str = "./out",
-    models: Tuple[str] = ("rp", "pca", "ae", "dae", "vae", "simclr"),
-    n_components: Tuple[int] = (128, 256, 512, 1024),
-    sigmas: Tuple[float] = (0.1, 0.5, 0.75, 1, 1.5),
-    betas: Tuple[float] = (1e-4, 1e-3, 1e-2, 1e-1),
+    models: Iterable[str] = ("rp", "pca", "ae", "dae", "vae", "simclr"),
+    n_components: Iterable[int] = (128, 256, 512, 1024),
+    sigmas: Iterable[float] = (0.1, 0.5, 0.75, 1, 1.5),
+    betas: Iterable[float] = (1e-4, 1e-3, 1e-2, 1e-1),
 ):
     """Runs experiments and plot results.
 
-    Args:
-        out_dir:
-            Path to output experiment results.
-        models:
-            Models to perform experiments on. Supports Random Projection (rp),
-            Principle Component Analysis (pca), Autoencoder (ae),
-            Denosing Autoencoder (dae), Variantional Autoencoder (vae) and
-            Contrastive Learning (simclr).
-        n_components:
-            Dimensionality reduction feature dimensions.
-        sigmas:
-            Noise standard deviations for Denosing Autoencoder experiments.
-        betas:
-            Beta values for Variantional Autoencoder experiments.
+    Parameters
+    ----------
+    out_dir
+        Path to output experiment results.
+    models
+        Models to perform experiments on. Supports Random Projection (rp),
+        Principle Component Analysis (pca), Autoencoder (ae),
+        Denosing Autoencoder (dae), Variantional Autoencoder (vae) and
+        Contrastive Learning (simclr).
+    n_components
+        Dimensionality reduction feature dimensions.
+    sigmas
+        Noise standard deviations for Denosing Autoencoder experiments.
+    betas
+        Beta values for Variantional Autoencoder experiments.
     """
     _run_models(out_dir, models, n_components, sigmas, betas)
     _plot_models(out_dir, models, n_components, sigmas, betas)
